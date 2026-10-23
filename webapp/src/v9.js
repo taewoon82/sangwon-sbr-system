@@ -1,4 +1,4 @@
-// ===== v11: 설계도면(DWG) · 시방서(PDF) 대조 · 첨부 상태 · 검토서 엑셀 출력 (3D 업데이트 중) =====
+// ===== v12: 설계도면(DWG, 여러 장) · 시방서(PDF) 대조 · 압축파일 · 첨부 상태 · 검토서 엑셀 출력 (3D 업데이트 중) =====
 const CDN = {
   dwg:  "https://cdn.jsdelivr.net/npm/@mlightcad/libredwg-web@0.7.14/dist/libredwg-web.js",
   wasm: "https://cdn.jsdelivr.net/npm/@mlightcad/libredwg-web@0.7.14/wasm/",
@@ -86,7 +86,7 @@ function model(){
   const peW=dimPick(D&&D.eq.dimVotes,eW), peL=dimPick(D&&D.eq.dimVotes,eL);
   add("유량조정조","eqW","가로 W","m",eW, V9.pick.eqW ?? peW.v,{cands:peW.cands});
   add("유량조정조","eqL","세로 L","m",eL, V9.pick.eqL ?? peL.v,{cands:peL.cands});
-  add("유량조정조","eqHe","유효수심","m",val(X.eqHe), e&&(e.matched||!(val(X.eqHe)>0))?(e.noLwl?lv(e.hwl,e.bottom):lv(e.hwl,e.lwl)):null,{dnote:e&&e.hwl!=null&&(e.matched||!(val(X.eqHe)>0))?(e.noLwl?`HWL(D.W.L) EL.${e.hwl} − 바닥 EL.${e.bottom} (도면에 LWL 표기 없음)`:`HWL EL.${e.hwl} / LWL EL.${e.lwl}`):""});
+  add("유량조정조","eqHe","유효수심","m",val(X.eqHe), e&&(e.matched||!(val(X.eqHe)>0))?(e.noLwl?lv(e.hwl,e.bottom):lv(e.hwl,e.lwl)):null,{dnote:e&&e.hwl!=null&&(e.matched||!(val(X.eqHe)>0))?(e.noLwl?`HWL(D.W.L) EL.${e.hwl} − 바닥 EL.${e.bottom} (${e.lwlSeen?"LWL 표기로는 계산서 수심과 안 맞아 바닥 기준으로 대조":"도면에 LWL 표기 없음"})`:`HWL EL.${e.hwl} / LWL EL.${e.lwl}`):""});
   add("유량조정조","eqN","지수","지",val(X.eqN), D&&D.eq.n);
   const f=D&&D.ef&&{...levelPick(D.ef,"ef",val(X.efHe)), dimVotes:D.ef.dimVotes}, pfW=dimPick(f&&f.dimVotes,val(X.efW)), pfL=dimPick(f&&f.dimVotes,val(X.efL));
   V9.lv.f=f;
@@ -148,7 +148,7 @@ function levelPick(t, mode, He){
   let best=null;
   if(mode==="eq"){ for(const h of C.hwl) for(const l of C.lwl){ if(Math.abs(h.v-l.v-He)<=0.02){ const sc=h.d+l.d; if(!best||sc<best.sc) best={sc,hwl:h.v,lwl:l.v}; } }
     if(best){ const b=C.el.filter(e=>e.v<best.lwl).sort((a,c)=>a.d-c.d)[0]; best.bottom=b?b.v:null; }
-    else if(!C.lwl.length){ for(const h of C.hwl) for(const b of C.el){ if(Math.abs(h.v-b.v-He)<=0.02){ const sc=h.d+b.d; if(!best||sc<best.sc) best={sc,hwl:h.v,bottom:b.v,lwl:null,noLwl:true}; } } } }
+    if(!best){ for(const h of C.hwl) for(const b of C.el){ if(Math.abs(h.v-b.v-He)<=0.02){ const sc=h.d+b.d; if(!best||sc<best.sc) best={sc,hwl:h.v,bottom:b.v,lwl:null,noLwl:true,lwlSeen:C.lwl.length>0}; } } } }
   else { for(const h of C.hwl) for(const b of C.el){ if(Math.abs(h.v-b.v-He)<=0.02){ const sc=h.d+b.d; if(!best||sc<best.sc) best={sc,hwl:h.v,bottom:b.v}; } }
     if(best){ const l=C.lwl.filter(x=>x.v>best.bottom&&x.v<best.hwl).sort((a,c)=>a.d-c.d)[0]; best.lwl=l?l.v:null; } }
   if(!best) return base;
@@ -246,7 +246,7 @@ function updAtt(){
   const D=V9.dwg;
   if(ATT.dwgBusy) set("attDwg", false, "📐 설계도면", "해석 중…", "busy");
   else if(ATT.dwgErr) set("attDwg", false, "📐 설계도면", "읽기 실패 — 아래 Ⓓ 안내 확인", "err");
-  else set("attDwg", !!D, "📐 설계도면", D? `✓ ${h(V9.dwgName)} <small>문자 ${D.nText.toLocaleString()} · 치수 ${D.nDim.toLocaleString()}</small>${rs}` : "미첨부");
+  else set("attDwg", !!D, "📐 설계도면", D? `✓ ${h(V9.dwgName)}${V9.dwgNames&&V9.dwgNames.length>1?` <small>(${V9.dwgNames.length}장)</small>`:""} <small>문자 ${D.nText.toLocaleString()} · 치수 ${D.nDim.toLocaleString()}</small>${rs}` : "미첨부");
   if(ATT.specBusy) set("attSpec", false, "📑 시방서·장비일람표", "읽는 중…", "busy");
   else if(ATT.specErr) set("attSpec", false, "📑 시방서·장비일람표", "읽기 실패", "err");
   else set("attSpec", !!V9.spec, "📑 시방서·장비일람표", V9.spec? `✓ ${h(V9.specName)} <small>기기 ${V9.spec.items.length}개</small>${rs}` : "미첨부");
@@ -254,30 +254,46 @@ function updAtt(){
   mark("drop", xn); mark("v9drop", D&&!ATT.dwgBusy? V9.dwgName : ""); mark("v11drop", V9.spec&&!ATT.specBusy? V9.specName : "");
 }
 
-// ---------- DWG 불러오기 ----------
-async function loadDwg(file){
+// ---------- DWG 불러오기 (여러 장 합쳐 읽기) ----------
+// 각 도면을 블록까지 펼친 뒤 x좌표를 도면마다 크게 띄워(1e9) 겹치지 않게 합쳐서 한 번에 해석
+function shiftEnt(e, dx, seen){ const go=(o,k)=>{ if(!o||typeof o!=="object"||seen.has(o)) return; seen.add(o);
+    if(typeof o.x==="number"&&typeof o.y==="number"&&!/extrusion|normal|direction/i.test(k||"")) o.x+=dx;
+    for(const [kk,v] of Object.entries(o)) if(v&&typeof v==="object") go(v,kk); }; go(e,""); }
+async function loadDwg(file){ return loadDwgs([file]); }
+async function loadDwgs(files){
   const st=$("v9stat"); const sec=$("v9sec");
   try{
     sec.classList.add("v9-busy"); ATT.dwgBusy=true; ATT.dwgErr=""; ATT.restored=false; updAtt();
-    st.innerHTML=`<b>${h(file.name)}</b> — 도면 해석 모듈 준비 중… (처음 한 번 약 11MB 내려받음)`; await tick();
+    st.innerHTML=`도면 ${files.length}장 — 도면 해석 모듈 준비 중… (처음 한 번 약 11MB 내려받음)`; await tick();
     if(!V9.mod) V9.mod = await import(CDN.dwg);
-    if(!V9.lib) V9.lib = await V9.mod.LibreDwg.create(CDN.wasm);
-    st.innerHTML=`<b>${h(file.name)}</b> — 도면 해석 중… (큰 도면은 10초 이상 걸릴 수 있습니다)`; await tick();
-    const buf=new Uint8Array(await file.arrayBuffer());
-    const isDxf=/\.dxf$/i.test(file.name);
-    if(!isDxf && !/^AC10\d\d/.test(String.fromCharCode(...buf.slice(0,6)))) throw new Error("DWG 파일 형식이 아닙니다");
-    const dwg=V9.lib.dwg_read_data(buf, isDxf?V9.mod.Dwg_File_Type.DXF:V9.mod.Dwg_File_Type.DWG);
-    if(!dwg) throw new Error("이 도면을 읽지 못했습니다 — 오토캐드에서 ‘다른 이름으로 저장 → DXF’ 후 다시 올려주세요");
-    const db=V9.lib.convert(dwg); try{ V9.lib.dwg_free(dwg); }catch(e){}
-    const R=dwgExtract(db.entities||[], (db.tables&&db.tables.BLOCK_RECORD&&db.tables.BLOCK_RECORD.entries)||[]);
-    if(!R.sbr.labels) throw new Error("도면에서 ‘SBR 반응조’ 명칭을 찾지 못했습니다");
-    V9.dwg=R; V9.dwgName=file.name; V9.pick={}; V9.over={}; ATT.dwgBusy=false;
-    st.innerHTML=`<b>${h(file.name)}</b> — 해석 완료. 문자 ${R.nText.toLocaleString()}개 · 치수 ${R.nDim.toLocaleString()}개 · ‘SBR 반응조’ 명칭 ${R.sbr.labels}곳${R.unit&&Math.abs(R.unit-1)>0.05?` · 도면 축척 보정 ×${R.unit.toFixed(3)}`:""}. 수위·치수는 용량계산서 값과 맞는 조합을 골라 아래 대조표에 표시합니다.`;
+    const all=[]; const ok=[], bad=[];
+    for(let i=0;i<files.length;i++){ const file=files[i];
+      st.innerHTML=`<b>${h(file.name)}</b> (${i+1}/${files.length}) — 도면 해석 중… (큰 도면은 10초 이상 걸릴 수 있습니다)`; await tick();
+      try{
+        const buf=new Uint8Array(await file.arrayBuffer());
+        const isDxf=/\.dxf$/i.test(file.name);
+        if(!isDxf && !/^AC10\d\d/.test(String.fromCharCode(...buf.slice(0,6)))) throw new Error("DWG 형식이 아님");
+        // 도면마다 해석기를 새로 만듦 (같은 해석기로 두 번째 도면을 읽으면 WASM 오류가 남)
+        const lib = await V9.mod.LibreDwg.create(CDN.wasm);
+        const dwg=lib.dwg_read_data(buf, isDxf?V9.mod.Dwg_File_Type.DXF:V9.mod.Dwg_File_Type.DWG);
+        if(!dwg) throw new Error("읽지 못함 — 오토캐드에서 DXF로 저장 후 다시");
+        const db=lib.convert(dwg);
+        const ents=dwgExpand(db.entities||[], (db.tables&&db.tables.BLOCK_RECORD&&db.tables.BLOCK_RECORD.entries)||[], 3);
+        if(i>0){ const seen=new WeakSet(); for(const e of ents) shiftEnt(e, i*1e9, seen); }
+        for(const e of ents) all.push(e);
+        ok.push(file.name);
+      }catch(e){ bad.push(`${file.name}: ${e.message||e}`); }
+    }
+    V9.dwgBad=bad;
+    if(!ok.length) throw new Error(bad.join(" / "));
+    const R=dwgExtract(all, []);
+    if(!R.sbr.labels) throw new Error(`도면 ${ok.length}장 어디에서도 ‘SBR 반응조’ 명칭을 찾지 못했습니다`);
+    V9.dwg=R; V9.dwgNames=ok; V9.dwgName=ok.length>1?`${ok[0]} 외 ${ok.length-1}장`:ok[0]; V9.pick={}; V9.over={}; ATT.dwgBusy=false;
+    st.innerHTML=`설계도면 ${ok.length}장 해석 완료 (${ok.map(h).join(", ")}). 문자 ${R.nText.toLocaleString()}개 · 치수 ${R.nDim.toLocaleString()}개 · ‘SBR 반응조’ 명칭 ${R.sbr.labels}곳${R.equipTable&&R.equipTable.length?` · 기기목록표 ${R.equipTable.length}개 기기`:""}.`+(bad.length?`<br><span class="miss">못 읽은 도면: ${bad.map(h).join(" / ")}</span>`:"");
     renderCmp9();
   }catch(e){ ATT.dwgErr=String(e&&e.message||e); st.innerHTML=`<span class="miss">도면을 읽지 못했습니다: ${h(e&&e.message?e.message:e)}</span>`; }
   finally{ sec.classList.remove("v9-busy"); ATT.dwgBusy=false; updAtt(); }
 }
-
 
 // ---------- 시방서 · 장비일람표 (PDF) 불러오기 (v11) ----------
 async function loadSpec(file){
@@ -462,7 +478,7 @@ async function makeXlsx(){
     set("D11",X.cap); set("D12",num("q_0")||null); set("D13",A(rows,"N")); set("D14",num("nc")||null);
     set("D16",num("hrtT")||null); set("D17",state.pdfRef&&state.pdfRef.SRT?r3(state.pdfRef.SRT[0]):null);
     set("D22",A(rows,"eqW")); set("D23",A(rows,"eqL")); set("D24",A(rows,"eqHe")); set("D25",A(rows,"eqN"));
-    if(e&&e.hwl!=null&&e.matched){ set("G28", e.noLwl?`도면 HWL(D.W.L) EL.${e.hwl} − 바닥 EL.${e.bottom} = ${n2(e.hwl-e.bottom)} m (계산서 유효수심과 비교) · 도면에 LWL 표기 없음 → 펌프 정지수위 확인`:`도면 HWL EL.${e.hwl} / LWL EL.${e.lwl} → 변동수심 ${n2(e.hwl-e.lwl)} m`); }
+    if(e&&e.hwl!=null&&e.matched){ set("G28", e.noLwl?`도면 HWL(D.W.L) EL.${e.hwl} − 바닥 EL.${e.bottom} = ${n2(e.hwl-e.bottom)} m (계산서 유효수심과 비교) · ${e.lwlSeen?"도면 LWL 표기와 계산서 수심이 맞지 않음 → 펌프 정지수위 확인":"도면에 LWL 표기 없음 → 펌프 정지수위 확인"}`:`도면 HWL EL.${e.hwl} / LWL EL.${e.lwl} → 변동수심 ${n2(e.hwl-e.lwl)} m`); }
     set("D37",A(rows,"W")); set("D38",A(rows,"L")); set("D39",A(rows,"Lw")); set("D40",A(rows,"He")); set("D41",A(rows,"Fb"));
     if(s&&s.top!=null) set("G41",`도면 상부 EL.${s.top} − HWL EL.${s.hwl}`);
     const cmpTxt=k=>{ const r=rows.find(x=>x.key===k); return r&&r.st==="일치"?`용량계산서 = 도면 (${n2(r.xls)})`: r&&r.st==="불일치"?`용량계산서 ${n2(r.xls)} / 도면 ${n2(r.dwg)} 불일치`:""; };
@@ -556,15 +572,23 @@ async function makeXlsx(){
 (function initV9(){
   const f=$("v9file");
   $("v9drop").addEventListener("click",()=>f.click());
-  f.addEventListener("change",()=>{ if(f.files[0]) loadDwg(f.files[0]); f.value=""; });
-  const sf=$("v11file"); $("v11drop").addEventListener("click",()=>sf.click()); sf.addEventListener("change",()=>{ if(sf.files[0]) loadSpec(sf.files[0]); sf.value=""; });
+  f.setAttribute("multiple",""); f.setAttribute("accept",".dwg,.dxf,.zip,.rar,.7z,.egg,.alz,.tar,.gz");
+  f.addEventListener("change",()=>{ if(f.files.length) ingestFiles(f.files,"dwg"); f.value=""; });
+  const sf=$("v11file"); sf.setAttribute("multiple",""); sf.setAttribute("accept",".pdf,application/pdf,.zip,.rar,.7z,.egg,.alz");
+  $("v11drop").addEventListener("click",()=>sf.click()); sf.addEventListener("change",()=>{ if(!sf.files.length) return; const L=[...sf.files]; (L.length===1&&/\.pdf$/i.test(L[0].name))? loadSpec(L[0]) : ingestFiles(L,"spec"); sf.value=""; });
   $("attSpec").style.cursor="pointer"; $("attSpec").addEventListener("click",()=>sf.click());
-  ["v9drop","v11drop"].forEach(id=>{ const z=$(id); z.addEventListener("dragover",e=>{e.preventDefault();}); z.addEventListener("drop",e=>{ e.preventDefault(); e.stopPropagation(); const fl=e.dataTransfer.files[0]; if(!fl) return; if(/\.pdf$/i.test(fl.name)&&id==="v11drop") loadSpec(fl); else if(/\.(dwg|dxf)$/i.test(fl.name)) loadDwg(fl); else if(/\.pdf$/i.test(fl.name)) loadSpec(fl); }); });
+  // 어디에 놓든: 여러 파일·압축파일은 자동 분류, 한 파일은 놓은 칸 기준
+  window.addEventListener("drop",e=>{ const L=[...(e.dataTransfer?.files||[])]; if(!L.length) return; e.preventDefault(); e.stopImmediatePropagation(); document.body.classList.remove("dragover");
+    const z=e.target.closest&&e.target.closest("#v11drop"); if(L.length===1&&z&&/\.pdf$/i.test(L[0].name)) loadSpec(L[0]); else ingestFiles(L,"drop"); }, true);
+  // 위쪽 용량계산서 버튼: 여러 개·압축파일 선택 허용
+  { const pf=$("pdfFile"); pf.setAttribute("multiple",""); pf.setAttribute("accept", pf.getAttribute("accept")+",.zip,.rar,.7z,.egg,.alz");
+    window.addEventListener("change",e=>{ if(e.target!==pf||!pf.files.length) return; const L=[...pf.files]; if(L.length===1&&/\.(pdf|xls|xlsx|xlsm)$/i.test(L[0].name)) return; e.stopImmediatePropagation(); ingestFiles(L,"cap"); pf.value=""; }, true); }
   const pf=$("pdfFile"); pf.setAttribute("accept", pf.getAttribute("accept")+",.dwg,.dxf");
   const orig = window.importPdf;
   window.importPdf = async function(file){
     if(!file) return;
-    if(/\.(dwg|dxf)$/i.test(file.name)) return loadDwg(file);
+    if(/\.(dwg|dxf)$/i.test(file.name)) return loadDwgs([file]);
+    if(/\.(zip|rar|7z|egg|alz|tar|gz)$/i.test(file.name)) return ingestFiles([file],"cap");
     ATT.restored=false;
     await orig(file);
     if(/\.xls[xm]?$/i.test(file.name) && window.XLSX){
