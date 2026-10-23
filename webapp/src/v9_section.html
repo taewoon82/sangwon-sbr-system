@@ -1,6 +1,6 @@
 <div class="wrap9">
 <section id="v9sec">
-  <h2>Ⓓ 설계도면 대조 · 3D · 검토서 출력<span>용량계산서(엑셀) + 설계도면(DWG·DXF) · 인터넷 연결 필요(도면 해석·3D 모듈)</span></h2>
+  <h2>Ⓓ 설계도면 대조 · 검토서 출력<span>용량계산서(엑셀) + 설계도면(DWG·DXF) · 인터넷 연결 필요(도면 해석 모듈)</span></h2>
   <div class="body">
     <div class="v9-top">
       <div class="drop" id="v9drop"><b>📐 설계도면 불러오기 (DWG · DXF)</b><br><small>SBR 반응조 평면도·단면도가 들어 있는 설계사 CAD 파일. 위 Ⓟ 칸에 끌어다 놓아도 됩니다.</small></div>
@@ -10,24 +10,18 @@
         <label>검토자 <input type="text" id="v9reviewer" placeholder="이름"></label>
       </div>
     </div>
-    <div id="v9stat" class="note">① 위에서 용량계산서 엑셀을 불러오고 ② 설계도면 DWG를 불러오면, 두 자료를 대조해 3D와 검토서 엑셀을 만듭니다.</div>
+    <div id="v9stat" class="note">① 위에서 용량계산서 엑셀을 불러오고 ② 설계도면 DWG를 불러오면, 두 자료를 대조해 검토서 엑셀을 만듭니다.</div>
 
-    <h3 class="v9-h">대조표 <small>적용값은 직접 고칠 수 있습니다 · 고치면 3D와 검토서에 바로 반영</small></h3>
+    <h3 class="v9-h">대조표 <small>적용값은 직접 고칠 수 있습니다 · 고치면 검토서에 바로 반영</small></h3>
     <div class="scroll"><table class="tbl v9tbl" id="v9cmp"></table></div>
     <div class="note" id="v9cmpNote"></div>
 
-    <h3 class="v9-h">3D 배치 <small>마우스 드래그 회전 · 휠 확대 · 우클릭 이동</small></h3>
-    <div class="v9-3dbar">
-      <label>수위 <input type="range" id="v9lv" min="0" max="1000" value="1000"> <b id="v9lvT">HWL</b></label>
-      <label><input type="checkbox" id="v9cut" checked> 단면 보기</label>
-      <label><input type="checkbox" id="v9lab" checked> 명칭 표시</label>
-      <label title="터빈 형식별 표준 치수 · 1250형 = 2.5 × 1.2 × 0.2 m (콘크리트)">십자구조물 폭·높이·두께 <input type="number" id="v9cw" step="0.1" style="width:56px"> <input type="number" id="v9ch" step="0.1" style="width:56px"> <input type="number" id="v9ct" step="0.05" style="width:56px"> m</label>
-      <label>바닥 헌치 <input type="number" id="v9hn" step="0.1" value="0.6" style="width:56px"> m</label>
-      <button id="v9png">🖼 이미지 저장</button>
-      <button id="v9glb">⬇ 3D 파일(GLB)</button>
+    <h3 class="v9-h">3D 배치</h3>
+    <div id="v9upd">
+      <div class="v9upd-badge">🚧 업데이트 중</div>
+      <p>터빈 상세도면이 아직 반영되지 않아 포기장치·배출장치 형상이 실제와 맞지 않습니다.<br>상세도면 반영 후 3D 배치를 다시 제공합니다.</p>
+      <small>대조표와 검토서 엑셀 출력은 그대로 사용할 수 있습니다. 검토서의 포기장치 배치·이격(45행)은 도면을 보고 직접 기입하세요.</small>
     </div>
-    <div id="v9view"><div id="v9ph">반응조 치수가 들어오면 3D가 그려집니다.</div></div>
-    <div class="note" id="v9geoNote"></div>
 
     <h3 class="v9-h">검토서 출력</h3>
     <div class="btnrow"><button id="v9xlsx" class="v9-primary">📋 검토서 엑셀 만들기 (Project 체크리스트 양식)</button></div>

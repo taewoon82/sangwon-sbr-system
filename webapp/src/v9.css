@@ -24,3 +24,8 @@
 .v9-busy{opacity:.6;pointer-events:none}
 @media (max-width:700px){#v9view{height:380px}.v9-meta input{width:150px}}
 @media print{.wrap9{display:none}}
+
+#v9upd{border:1px dashed #c9a227;background:#fffaf0;border-radius:6px;padding:28px 20px;text-align:center;color:#5b5140;margin:4px 0 10px}
+#v9upd .v9upd-badge{display:inline-block;background:#e0b000;color:#2b2300;font-weight:700;font-size:15px;padding:5px 14px;border-radius:14px;margin-bottom:10px}
+#v9upd p{margin:6px 0;font-size:14px;line-height:1.6}
+#v9upd small{color:#7a6f5a}

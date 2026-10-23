@@ -252,7 +252,10 @@ async function init3D(){
     return true;
   }catch(e){ G3.ready=null; const ph=$("v9ph"); if(ph) ph.textContent="3D 모듈을 불러오지 못했습니다 (인터넷 연결 확인): "+(e.message||e); return false; }
 }
+// 3D 배치: 터빈 상세도면 반영 전까지 끔 (형상 불일치). 다시 켤 때 true + v9_section.html 3D 블록 복원
+const V9_3D_ON = false;
 async function draw3D(rows){
+  if(!V9_3D_ON){ V9.geo=null; return; }
   const W=A(rows,"W"), L=A(rows,"L"), He=A(rows,"He"), nT=Math.max(1,Math.round(A(rows,"N")||1));
   if(!(W>0&&L>0&&He>0)){ $("v9geoNote").innerHTML="반응조 가로·세로·HWL 수심이 있어야 3D를 그립니다."; return; }
   if(!(await ensure3D())) return;
@@ -424,10 +427,10 @@ async function makeXlsx(){
   $("v9cmp").addEventListener("change",ev=>{ const t=ev.target;
     if(t.dataset.pick){ V9.pick[t.dataset.pick]= t.value===""? undefined : parseFloat(t.value); delete V9.over[t.dataset.pick]; renderCmp9(); }
     else if(t.dataset.ap){ const v=parseFloat(t.value); if(isFinite(v)) V9.over[t.dataset.ap]=v; else delete V9.over[t.dataset.ap]; renderCmp9(); } });
-  ["v9lv","v9cut","v9lab","v9cw","v9ch","v9ct","v9hn"].forEach(id=>$(id).addEventListener("input",()=>draw3D(model())));
+  ["v9lv","v9cut","v9lab","v9cw","v9ch","v9ct","v9hn"].forEach(id=>$(id)&&$(id).addEventListener("input",()=>draw3D(model())));
   ["W","L","T","nTank","rated","size"].forEach(id=>{ const e=$(id); if(e) e.addEventListener("input",()=>setTimeout(renderCmp9,0)); });
-  $("v9png").addEventListener("click",()=>{ if(!G3.renderer) return; G3.renderer.render(G3.scene,G3.cam); const a=document.createElement("a"); a.href=G3.renderer.domElement.toDataURL("image/png"); a.download=`3D_${($("siteName").value||"현장").trim()}.png`; a.click(); });
-  $("v9glb").addEventListener("click",async()=>{ if(!G3.root) return; const {GLTFExporter}=await import(CDN.gltf); new GLTFExporter().parse(G3.root, r=>{ const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([r],{type:"model/gltf-binary"})); a.download=`3D_${($("siteName").value||"현장").trim()}.glb`; a.click(); }, err=>alert(err), {binary:true}); });
+  $("v9png")&&$("v9png").addEventListener("click",()=>{ if(!G3.renderer) return; G3.renderer.render(G3.scene,G3.cam); const a=document.createElement("a"); a.href=G3.renderer.domElement.toDataURL("image/png"); a.download=`3D_${($("siteName").value||"현장").trim()}.png`; a.click(); });
+  $("v9glb")&&$("v9glb").addEventListener("click",async()=>{ if(!G3.root) return; const {GLTFExporter}=await import(CDN.gltf); new GLTFExporter().parse(G3.root, r=>{ const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([r],{type:"model/gltf-binary"})); a.download=`3D_${($("siteName").value||"현장").trim()}.glb`; a.click(); }, err=>alert(err), {binary:true}); });
   $("v9xlsx").addEventListener("click",makeXlsx);
   ["v9designer","v9reviewer"].forEach(id=>$(id).addEventListener("input",()=>{ try{ const o=JSON.parse(localStorage.getItem(V9KEY)||"{}"); o.designer=$("v9designer").value; o.reviewer=$("v9reviewer").value; localStorage.setItem(V9KEY,JSON.stringify(o)); }catch(e){} }));
   try{ const o=JSON.parse(localStorage.getItem(V9KEY)||"null"); if(o){ V9.xls=o.xls||null; V9.xlsName=o.xlsName||''; V9.dwg=o.dwg||null; V9.dwgName=o.dwgName||""; V9.over=o.over||{}; V9.pick=o.pick||{}; $("v9designer").value=o.designer||""; $("v9reviewer").value=o.reviewer||""; } }catch(e){}
