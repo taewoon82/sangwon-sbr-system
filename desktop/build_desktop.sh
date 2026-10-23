@@ -4,7 +4,7 @@
 set -e
 cd "$(dirname "$0")"
 npm i adm-zip@0.5.16
-npm i --no-save electron@33.2.1 @electron/packager@18.3.6 three@0.160.0 jszip@3.10.1 @mlightcad/libredwg-web@0.7.14 libarchive.js@2.0.2
+npm i --no-save electron@33.2.1 @electron/packager@18.3.6 three@0.160.0 jszip@3.10.1 @mlightcad/libredwg-web@0.7.14 libarchive.js@2.0.2 tesseract.js@5.1.1 tesseract.js-core@5.1.1 @tesseract.js-data/kor@1.0.0 @tesseract.js-data/eng@1.0.0
 rm -rf app && mkdir -p app/vendor
 NM=node_modules
 mkdir -p app/vendor/libredwg-web/{dist,wasm} app/vendor/three/build app/vendor/three/examples/jsm/{controls,renderers,exporters} app/vendor/jszip/dist
@@ -17,6 +17,8 @@ cp $NM/three/examples/jsm/exporters/GLTFExporter.js app/vendor/three/examples/js
 cp $NM/jszip/dist/jszip.min.js app/vendor/jszip/dist/
 mkdir -p app/vendor/libarchive/dist && cp $NM/libarchive.js/dist/{libarchive.js,worker-bundle.js,libarchive.wasm} app/vendor/libarchive/dist/
 SRC=$(ls -t ../webapp/SBR_*.html | head -1)
+mkdir -p app/vendor/tess/core app/vendor/tess/lang && cp $NM/tesseract.js/dist/{tesseract.min.js,worker.min.js} app/vendor/tess/ && cp $NM/tesseract.js-core/{tesseract-core-simd-lstm.wasm.js,tesseract-core-lstm.wasm.js} app/vendor/tess/core/
+for l in kor eng; do cp $NM/@tesseract.js-data/$l/4.0.0_best_int/$l.traineddata.gz app/vendor/tess/lang/$l.traineddata.gz.wasm; done
 python3 ../webapp/src/vendorize.py "$SRC" desktop app/index.html
 npx electron-packager . SBR-Design-Review --platform=win32 --arch=x64 --out=dist --overwrite --asar \
   --ignore="^/dist($|/)" --ignore="^/build_desktop\.sh$" --ignore="^/make_update\.py$"

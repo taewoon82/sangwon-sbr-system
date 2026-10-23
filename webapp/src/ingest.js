@@ -68,15 +68,20 @@ async function ingestFiles(list, hint){
     const cap=xls.sort((a,b)=>(/용량|계산/.test(b.name)-/용량|계산/.test(a.name)))[0];
     // PDF: 시방서인지 용량계산서인지 내용으로 판별
     const specPdfs=[]; let capPdf=null;
-    for(const p of pdf){ try{ const {pages}=await readPdf(new Uint8Array(await p.file.arrayBuffer())); const lines=specLinesFromPages(pages); const R=specParse(lines);
+    const drawPdfs=[];
+    for(const p of pdf){ try{ st.innerHTML=`<b>${h(p.name)}</b> — PDF 확인 중…`; await tick();
+        const {pages}=await readPdf(new Uint8Array(await p.file.arrayBuffer())); const lines=specLinesFromPages(pages); const R=specParse(lines);
         const txt=lines.slice(0,400).map(l=>l.s).join(" ");
+        const chars=lines.reduce((a,l)=>a+l.s.length,0);
         if(R.items.length) specPdfs.push({...p, R, n:pages.length});
+        else if(pages.length>=2 && chars/pages.length<120) drawPdfs.push(p);   // 글자가 그림으로 된 도면 PDF
         else if(!cap && !capPdf && /용량\s*계산서|물질\s*수지/.test(txt)) capPdf=p;
         else p.skip="시방서 항목(포기·폭기장치·배출장치·공법제어반)을 찾지 못함"; }catch(e){ p.skip="PDF를 읽지 못함"; } }
     const summary=[];
     if(cap||capPdf){ const c=cap||capPdf; st.innerHTML=`<b>${h(c.name)}</b> — 용량계산서 읽는 중…`; await tick(); await window.importPdf(c.file); summary.push(`용량계산서 <b>${h(c.name)}</b>`); }
-    if(dwg.length){ await loadDwgs(dwg.map(d=>d.file)); const n=(V9.dwgNames||[]).length; summary.push(`설계도면 ${n}장${V9.dwgBad&&V9.dwgBad.length?` <span class="miss">(못 읽음: ${V9.dwgBad.map(h).join(" / ")})</span>`:""}`); }
-    if(specPdfs.length){ applySpecs(specPdfs); summary.push(`시방서 ${specPdfs.length}개`); }
+    if(dwg.length||drawPdfs.length){ await loadDwgs(dwg.map(d=>d.file), drawPdfs.map(d=>d.file)); const n=(V9.dwgNames||[]).length; summary.push(`설계도면 ${n}장${V9.dwgBad&&V9.dwgBad.length?` <span class="miss">(못 읽음: ${V9.dwgBad.map(h).join(" / ")})</span>`:""}${ATT.dwgErr?` <span class="miss">(${h(ATT.dwgErr)})</span>`:""}`); }
+    const specSrc=[...specPdfs, ...(V9.drawSpec?[V9.drawSpec]:[])];
+    if(specSrc.length){ applySpecs(specSrc); if(specPdfs.length) summary.push(`시방서 ${specPdfs.length}개`); if(V9.drawSpec) summary.push(`도면 기기일람표 ${V9.drawSpec.R.items.length}개 기기`); }
     const unused=[...xls.filter(x=>x!==cap).map(x=>x.name+" (엑셀 — 용량계산서 1개만 사용)"), ...pdf.filter(p=>p.skip&&p!==capPdf).map(p=>`${p.name} (${p.skip})`), ...other.map(o=>o.name)];
     if(files.some(f=>ARCH_EXT.test(extOf(f.name)))||files.length>1){
       st.innerHTML=`자료 ${all.length}개를 확인했습니다${notes.length?` (${notes.join(" · ")})`:""}. 사용: ${summary.join(" · ")||"없음"}.`+
@@ -87,7 +92,7 @@ async function ingestFiles(list, hint){
 }
 function applySpecs(list){
   const items=[], facts={}; for(const s of list){ items.push(...s.R.items); for(const [k,v] of Object.entries(s.R.facts||{})) if(!facts[k]) facts[k]=v; }
-  const pick=t=>items.find(e=>e.type===t&&(e.cap||e.kw||e.whd||e.mat))||items.find(e=>e.type===t)||null;
+  const pick=t=>items.find(e=>e.type===t&&!e.fromTable&&(e.cap||e.kw||e.whd||e.mat))||items.find(e=>e.type===t&&(e.cap||e.kw||e.whd||e.mat))||items.find(e=>e.type===t)||null;
   V9.spec={items, facts, aer:pick("aer"), dec:pick("dec"), panel:pick("panel"), feed:pick("feed"), eff:pick("eff"), tp:pick("tp")};
-  V9.specName=list.length>1?`${list[0].name} 외 ${list.length-1}개`:list[0].name; ATT.specErr=""; updAtt();
+  const nm=list.map(x=>x.name); V9.specName=nm.length>1?`${nm[0]} 외 ${nm.length-1}개`:nm[0]; ATT.specErr=""; updAtt();
 }

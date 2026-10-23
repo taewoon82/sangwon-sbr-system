@@ -1,7 +1,7 @@
 import base64
 v8=open('v8.html',encoding='utf-8').read()
 tpl=base64.b64encode(open('/home/claude/cl/out/Project 체크리스트_정리본.xlsx','rb').read()).decode()
-js=open('dwgx.js',encoding='utf-8').read()+"\n"+open('spec.js',encoding='utf-8').read()+"\n"+open('ingest.js',encoding='utf-8').read()+"\n"+open('xfill.js',encoding='utf-8').read()+"\n"+open('v9.js',encoding='utf-8').read().replace("__TPL_B64__",tpl)
+js=open('dwgx.js',encoding='utf-8').read()+"\n"+open('spec.js',encoding='utf-8').read()+"\n"+open('ingest.js',encoding='utf-8').read()+"\n"+open('ocr.js',encoding='utf-8').read()+"\n"+open('xfill.js',encoding='utf-8').read()+"\n"+open('v9.js',encoding='utf-8').read().replace("__TPL_B64__",tpl)
 css=open('v9.css',encoding='utf-8').read(); sec=open('v9_section.html',encoding='utf-8').read()
 i=v8.find('</head>'); assert i>0
 out=v8[:i]+"<style>\n"+css+"</style>\n"+'<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js"}}</script>\n'+v8[i:]

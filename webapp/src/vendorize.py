@@ -5,7 +5,9 @@ s=open(src,encoding='utf-8').read()
 REP={"https://cdn.jsdelivr.net/npm/@mlightcad/libredwg-web@0.7.14/":"./vendor/libredwg-web/",
      "https://cdn.jsdelivr.net/npm/three@0.160.0/":"./vendor/three/",
      "https://cdn.jsdelivr.net/npm/jszip@3.10.1/":"./vendor/jszip/",
-     "https://cdn.jsdelivr.net/npm/libarchive.js@2.0.2/":"./vendor/libarchive/"}
+     "https://cdn.jsdelivr.net/npm/libarchive.js@2.0.2/":"./vendor/libarchive/",
+     "https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/":"./vendor/tess/",
+     "https://cdn.jsdelivr.net/npm/tesseract.js-core@5.1.1/":"./vendor/tess/core/"}
 for a,b in REP.items(): s=s.replace(a,b)
 assert 'cdn.jsdelivr' not in s, 'CDN 주소 남음'
 if mode=='artifact':
