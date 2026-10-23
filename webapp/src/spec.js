@@ -41,6 +41,28 @@ function specParse(lines){
     e.type=ty; out.push(e);
   });
   const by={}; for(const e of out){ if(!by[e.type]) by[e.type]=e; }
-  return {items:out, aer:by.aer||null, dec:by.dec||null, feed:by.feed||null, eff:by.eff||null, tp:by.tp||null, nLines:lines.length};
+  // 시방서 본문 문장 (scope · 제어반 · 계측 · 감속기) — 해당 문장을 쪽 번호와 함께 그대로 가져옴
+  const facts={};
+  const sentOf=(i)=>{ let a=i, b=i; while(a>0 && !/^\s*([가-힣]\.|\d+\)|[가-힣]\))/.test(lines[a].s) && i-a<3) a--; while(b<lines.length-1 && !/[다음]\.\s*$/.test(lines[b].s) && b-i<3) b++; return {t:lines.slice(a,b+1).map(l=>l.s).join(" ").replace(/^\s*([가-힣]\.|\d+\)|[가-힣]\))\s*/,"").replace(/\s+/g," ").trim(), page:lines[i].page}; };
+  const grab=(key,re,filt)=>{ for(let i=0;i<lines.length;i++){ if(re.test(lines[i].s) && (!filt||filt(i))){ facts[key]=sentOf(i); return; } } };
+  const inSec=(type)=>(i)=>{ const sc=secs.filter(s=>s.i<=i).pop(); if(!sc) return false; const e=out.find(o=>o.no===sc.no); return e&&e.type===type; };
+  grab("aerPos",/중앙\s*수면에\s*부유식|부유식으로\s*설치/);
+  grab("cross",/크로스\s*배플|십자형|Cross-?Construction/i);
+  grab("aerPad",/기초\s*패드/, inSec("aer"));
+  grab("decPad",/기초\s*패드/, inSec("dec"));
+  grab("tpPad",/기초\s*패드/, inSec("tp"));
+  grab("decWall",/유입부와\s*반대|반대\s*방향에\s*위치하는\s*벽/);
+  grab("gear",/감속기\s*\(|Helical\s*Gear|헬리컬/i, inSec("aer"));
+  grab("motor",/IP\s*\d{2}/i, inSec("aer"));
+  grab("panelMat",/\d+(?:\.\d+)?\s*mm\s*이상의/);
+  grab("panelParts",/Inverter|VVVF|인버터/i, inSec("dec"));
+  grab("comm",/Ethernet|이더넷|통신\s*포트/i);
+  grab("rcs",/상위\s*감시\s*제어\s*설비와\s*통신선|통신선\s*구축/);
+  grab("power1",/1차측\s*전원/);
+  grab("scope2",/2차측\s*전원|현장조작반을\s*공급/);
+  grab("level",/4\s*[～~]\s*20\s*㎃|4\s*[～~]\s*20\s*mA/i);
+  grab("do",/DO\s*(Meter|및)|용존산소/i);
+  grab("tpScope",/흡입측\s*밸브|토출밸브까지/);
+  return {items:out, facts, aer:by.aer||null, dec:by.dec||null, feed:by.feed||null, eff:by.eff||null, tp:by.tp||null, nLines:lines.length};
 }
 if(typeof module!=="undefined") module.exports={specParse,specLinesFromPages};

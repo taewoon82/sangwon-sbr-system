@@ -1,6 +1,32 @@
 // ===== DWG 추출 규칙 (SBR 반응조 · 유량조정조) — 브라우저/노드 공용 =====
 // 입력: libredwg-web convert() 결과의 entities 배열
-function dwgExtract(entities){
+// 블록 안에 그려진 단면도·문자(수위 E.L·D.W.L 등)를 모델 공간 좌표로 펼침
+function dwgExpand(entities, blockRecords, maxDepth){
+  if(!blockRecords||!blockRecords.length) return entities;
+  const by={}; for(const b of blockRecords){ if(b&&b.name&&!/^\*(Model|Paper)_Space/i.test(b.name)) by[b.name]=b; }
+  const out=[...entities]; let budget=400000;
+  const tf=(p,M)=>{ if(!p) return p; const x=(p.x-M.bx)*M.sx, y=(p.y-M.by)*M.sy; return {x:M.ix+x*M.c-y*M.s, y:M.iy+x*M.s+y*M.c, z:p.z}; };
+  const go=(ents,M,depth)=>{
+    for(const e of ents){ if(--budget<0) return;
+      if(e.type==="INSERT"){ if(depth>=maxDepth) continue; const b=by[e.name]; if(!b||!b.entities) continue;
+        const r=(e.rotation||0)*(Math.abs(e.rotation||0)>6.3?Math.PI/180:1), ip=M?tf(e.insertionPoint,M):e.insertionPoint;
+        const sx=(e.xScale||1)*(M?M.sx:1), sy=(e.yScale||1)*(M?M.sy:1), rot=r+(M?Math.atan2(M.s,M.c):0);
+        go(b.entities,{ix:ip.x,iy:ip.y,bx:(b.basePoint||{}).x||0,by:(b.basePoint||{}).y||0,sx,sy,c:Math.cos(rot),s:Math.sin(rot)},depth+1); continue; }
+      if(!M) continue;
+      if(!/^(TEXT|MTEXT|DIMENSION|CIRCLE|LWPOLYLINE)$/.test(e.type)) continue;
+      const n={...e, _blk:true};
+      for(const k of ["startPoint","insertionPoint","endPoint","center","textPoint","definitionPoint","subDefinitionPoint1","subDefinitionPoint2"]) if(e[k]) n[k]=tf(e[k],M);
+      if(e.vertices) n.vertices=e.vertices.map(v=>({...v,...tf(v,M)}));
+      if(e.radius) n.radius=e.radius*Math.abs(M.sx);
+      if(e.textHeight) n.textHeight=e.textHeight*Math.abs(M.sy);
+      out.push(n);
+    }
+  };
+  go(entities,null,0);
+  return out;
+}
+function dwgExtract(entities, blockRecords){
+  entities = dwgExpand(entities, blockRecords, 3);
   const clean = s => String(s||"").replace(/\\[A-Za-z][^;\\]*;|\\P|[{}]/g," ").replace(/%%[cC]/g,"Ø").replace(/\s+/g," ").trim();
   const T = [], D = [], INS = [], SQ = [], CIR = [], DECP = [];
   const DECL=/DECANTER|디캔터|배출\s*장치/i;
@@ -25,9 +51,9 @@ function dwgExtract(entities){
   const kind=p=>{ const t=nearestTitle(p); return t? (/단면/.test(t.s)?"sec":/평면/.test(t.s)?"plan":"?") : "?"; };
   const EL=(re,s)=>{ const m=s.match(re); return m?parseFloat(m[1]):null; };
   const levels = T.map(t=>({...t,
-    hwl:EL(/H\.?\s*W\.?\s*L\.?\s*\(?\+?\)?\s*(\d+\.\d+)/i,t.s),
+    hwl:EL(/(?:H|D)\.?\s*W\.?\s*L\.?\s*\(?\+?\)?\s*(\d+\.\d+)/i,t.s),
     lwl:EL(/L\.?\s*W\.?\s*L\.?\s*\(?\+?\)?\s*(\d+\.\d+)/i,t.s),
-    el: /^\s*(EL|FL|FGL)\.?\s*\(?\+?\)?\s*\d/i.test(t.s)? EL(/(\d+\.\d+)/,t.s):null,
+    el: /^\s*(E\.?\s*L|F\.?\s*L|FGL)\.?\s*\(?\+?\)?\s*\d/i.test(t.s)? EL(/(\d+\.\d+)/,t.s):null,
     bop:EL(/BOP\s*\(?\+?\)?\s*(\d+\.\d+)/i,t.s)}));
 
   function tank(labelRe, opt={}){
@@ -44,7 +70,8 @@ function dwgExtract(entities){
     // 바닥 EL: 단면 라벨 근처 EL 중 LWL보다 낮은 값의 최빈값 / 상부 EL: HWL보다 높은 값 중 가장 가까운 레벨의 최빈값
     const els=[]; for(const l of labs){ for(const t of levels){ if(t.el!=null && dist(t,l)<R*1.2) els.push(t.el); } }
     const ref=out.lwl??out.hwl; const below=vote(els.filter(v=>ref!=null? v<ref : true)); out.bottom=below[0]?.v ?? null;
-    const above=els.filter(v=>out.hwl!=null && v>out.hwl && v-out.hwl<3.5);
+    const els2=[]; for(const l of labs){ for(const t of levels){ if(t.el!=null && dist(t,l)<R*2.2) els2.push(t.el); } }
+    const above=els2.filter(v=>out.hwl!=null && v>out.hwl && v-out.hwl<3.5);
     const av=vote(above); out.top=av.length? av.sort((a,b)=>b.n-a.n||a.v-b.v)[0].v : null;
     // 평면 치수: 라벨 주변 치수 (3~30m)
     // 평면 치수: 라벨이 치수선 구간 안에 들어가는(라벨을 가로지르는) 치수 → 내부 폭·길이 후보
@@ -65,7 +92,7 @@ function dwgExtract(entities){
   }
   const sbr=tank(/SBR\s*반응조/i);
   const eq=tank(/유량\s*조정조/, {RP:9000});
-  const ef=tank(/^처리수조$/, {R:2500});
+  const ef=tank(/^처리수조\s*(#\s*\d+)?$/, {R:4000});
   // 기기 태그: 2M-xxx 코드 + 근처 명칭
   const tags=[]; const CODE=/\b(\d?M-\d{3}(?:[-\w/~]*)?)/;
   for(const t of T){ const m=t.s.match(CODE); if(!m) continue;
@@ -81,16 +108,18 @@ function dwgExtract(entities){
   const pipes=T.map(t=>{ const m=t.s.match(PIPE); return m?{x:t.x,y:t.y,a:+m[1],svc:m[2].toUpperCase()}:null; }).filter(Boolean);
   const eqLabs=T.filter(t=>/유량\s*조정조/.test(t.s)), efLabs=T.filter(t=>/처리수조/.test(t.s));
   const BASE=/(\d?M-\d{3})/;
-  const pumpOf=(nameRe, refs)=>{ const by={};
+  const pumpOf=(nameRe, refs, svcRe)=>{ const by={};
     for(const t of T){ const k=t.s.replace(/\s/g,""); if(k.length>16||!nameRe.test(k)) continue;
       const tg=T.filter(o=>CODE.test(o.s)&&dist(o,t)<1600*unit).sort((a,b)=>dist(a,t)-dist(b,t))[0]; if(!tg) continue;
       const base=(tg.s.match(BASE)||[])[1]; if(!base) continue; const disp=tg.s.match(CODE)[1];
       const dRef=refs.length?Math.min(...refs.map(l=>dist(l,t))):1e12;
-      const o=by[base]||(by[base]={code:disp,name:k,d:dRef,n:0}); o.n++; if(disp.length>o.code.length) o.code=disp; if(dRef<o.d) o.d=dRef; }
+      const o=by[base]||(by[base]={code:disp,name:k,d:dRef,n:0,pv:{}}); o.n++; if(disp.length>o.code.length) o.code=disp; if(dRef<o.d) o.d=dRef;
+      if(svcRe){ const np=pipes.filter(p=>svcRe.test(p.svc)&&dist(p,tg)<6000*unit).sort((a,b)=>dist(a,tg)-dist(b,tg))[0]; if(np){ const kk=np.a+"A-"+np.svc; o.pv[kk]=(o.pv[kk]||0)+1; } } }
+    for(const o of Object.values(by)){ const top=Object.entries(o.pv).sort((a,b)=>b[1]-a[1])[0]; if(top&&top[1]>=2){ o.pipe={a:parseInt(top[0]),label:top[0],n:top[1]}; } delete o.pv; }
     const arr=Object.values(by).sort((a,b)=>a.d-b.d||b.n-a.n); return arr[0]? {...arr[0], others:arr.slice(1).filter(o=>o.d<Math.max(arr[0].d*3,15000*unit)).slice(0,3).map(o=>o.code)} : null; };
   const pumps={
-    feed: pumpOf(/^(유량조정조(공급|이송)?|공급|SBR공급|반응조공급|원수공급)펌프$/, eqLabs.length?eqLabs:sbrLabs),
-    eff:  pumpOf(/^(처리수(이송|공급)?|총인(설비|처리|처리설비)?공급|처리수조이송)펌프$/, efLabs.length?efLabs:sbrLabs)
+    feed: pumpOf(/^(유량조정조(공급|이송)?|공급|SBR공급|반응조공급|원수공급)펌프$/, eqLabs.length?eqLabs:sbrLabs, /^(WW|SW|RW|IW|RAW|IN)/),
+    eff:  pumpOf(/^(처리수(이송|공급)?|총인(설비|처리|처리설비)?공급|처리수조이송)펌프$/, efLabs.length?efLabs:sbrLabs, /^(TW|EW|OW|PW)/)
   };
   const tw={}; let twN=0; for(const p of pipes){ if(/^TW/.test(p.svc) && sbrLabs.some(l=>dist(l,p)<8000*unit)){ tw[p.a]=(tw[p.a]||0)+1; twN++; } }
   const twTop=Object.entries(tw).sort((a,b)=>b[1]-a[1])[0];
@@ -106,4 +135,4 @@ function dwgExtract(entities){
     hoist:has(/호이스트/), aerator:has(/포기장치/), decanter:has(/배출장치/), pump:has(/공급\s*펌프/),
     bops: levels.filter(t=>t.bop!=null).map(t=>({v:t.bop, s:t.s}))};
 }
-if(typeof module!=="undefined") module.exports={dwgExtract};
+if(typeof module!=="undefined") module.exports={dwgExtract,dwgExpand};
