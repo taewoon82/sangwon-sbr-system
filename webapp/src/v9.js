@@ -119,6 +119,7 @@ function model(){
     add("시방서 (장비 사양)","sWinch","배출장치(윈치) 동력 (시방서)","kW", val(X.winch), u(SP.dec,"kw")?SP.dec.kw.v:null,{dnote:SP.dec?sx(SP.dec):"",noCmp:!val(X.winch)});
     add("시방서 (장비 사양)","sFeedQ","공급펌프 용량 (시방서)","㎥/min", null, cv(SP.feed,"㎥/min"),{dnote:sx(SP.feed),noCmp:1});
     add("시방서 (장비 사양)","sFeedKw","공급펌프 동력 (시방서)","kW", null, u(SP.feed,"kw")?SP.feed.kw.v:null,{noCmp:1});
+    if(SP.panel) add("시방서 (장비 사양)","sPanel","공법(반응조) 제어반 (시방서)","",null,null,{noCmp:1,dtxt:[SP.panel.no+" "+SP.panel.name, SP.panel.whd, SP.panel.mat, SP.panel.loc].filter(Boolean).join(" · ")});
     add("시방서 (장비 사양)","sTp","총인설비 처리용량 (시방서)","㎥/d", num("q_0")||null, SP.tp&&SP.tp.cap&&SP.tp.cap.unit==="㎥/d"?SP.tp.cap.v:null,{xsrc:"설계유량",dnote:SP.tp?sx(SP.tp):"",cmp:"ge"});
   }
   const P=planLayout(A0(rows,"W"),A0(rows,"L"),A0(rows,"N"));
@@ -221,7 +222,7 @@ function renderCmp9(){
     }
     if(r.dnote) dcell += ` <small>${h(r.dnote)}</small>`;
     const st = r.st==="일치"||r.st==="충족"||r.st==="단계"?`<span class="ok">${r.st}</span>`: r.st==="불일치"||r.st==="부족"?`<span class="ng">${r.st}</span>`: r.st?`<span class="one">${r.st}</span>`:"";
-    const ap = ["hoist","pos","decpos","cols","feedP","effP","tAer","tDec","tFeed","tWas","tEff"].includes(r.key) ? h(r.dtxt||"–") : `<input type="number" step="0.01" data-ap="${r.key}" value="${r.apply??""}">`;
+    const ap = ["hoist","pos","decpos","cols","feedP","effP","tAer","tDec","tFeed","tWas","tEff","sPanel"].includes(r.key) ? h(r.dtxt||"–") : `<input type="number" step="0.01" data-ap="${r.key}" value="${r.apply??""}">`;
     html+=`<tr><td></td><td class="lab">${r.lab}</td><td>${r.unit}</td><td>${n2(r.xls)}${r.xsrc?` <small>${r.xsrc}</small>`:""}</td><td>${dcell}</td><td>${st}</td><td>${ap}</td></tr>`;
   }
   $("v9cmp").innerHTML=html;
@@ -508,6 +509,9 @@ async function makeXlsx(){
       if(F.power1) set("G71","1차측 전원은 전기도급자 (MCC반은 시방서 범위 밖으로 판단 — 전기 도면 확인)"+pg(F.power1));
       if(F.panelMat){ const t=F.panelMat.t, th=(t.match(/(\d+(?:\.\d+)?)\s*mm\s*이상/)||[])[1], mat=/STS|스테인/i.test(t)?"STS":/Steel|강판/i.test(t)?"Steel":"";
         set("G72",[/방진/.test(t)?"방진":"", /자립형/.test(t)?"자립형":"", th?`${th}mm 이상 ${mat}`.trim():mat, /분체\s*도장/.test(t)?"정전 분체도장":""].filter(Boolean).join(" · ")+" · W×D×H는 시방서에 없음"+pg(F.panelMat)); }
+      const PN=V9.spec.panel; if(PN&&(PN.whd||PN.mat||PN.form)){ set("G72",[PN.form?`형식 ${PN.form}`:"", PN.whd?`규격 ${PN.whd}`:"", PN.mat?`재질 ${PN.mat}`:""].filter(Boolean).join(" · ")+` (시방서 ${PN.no} ${PN.name})`); }
+      if(PN&&PN.loc) set("G68",`시방서 설치위치: ${PN.loc} (${PN.no} ${PN.name})`);
+      if(PN&&PN.qty) set("H69",`시방서 ${PN.name} 수량 ${PN.qty}${PN.qtyAll?` (전체 ${PN.qtyAll})`:""}`);
       if(F.comm) set("G79",(/Ethernet/i.test(F.comm.t)?"Ethernet (개방형 프로토콜) 통신 포트":"통신 포트 제공")+pg(F.comm));
       const ins=[]; if(F.do) ins.push("DO·온도 신호 → 제어반 표시·인버터 제어"); if(F.level) ins.push("유량조정조·반응조 수위 4~20mA → 공급펌프 연동"); if(/Limit/i.test(tx)) ins.push("배출장치 Limit·Level S/W 연동");
       if(ins.length) set("G80",ins.join(" · ")+pg(F.do||F.level));
