@@ -1,0 +1,10 @@
+# 발주처·설계사 원본 자료(도면·계산서)는 저장소에 올리지 않음 — 회사 드라이브 보관
+sites/**/raw/
+*.dwg
+*.dxf
+# 유동해석 계산 폴더 (용량 큼)
+cfd/c[0-9]*/
+cfd/*.log
+cfd/post*.json
+cfd/viewer_data.json
+__pycache__/

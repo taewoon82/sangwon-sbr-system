@@ -1,0 +1,11 @@
+{
+ "note": "설계성과품 검토서 자동 판정 기준 — 체크리스트 양식과 웹앱이 같은 값을 쓰도록 여기서 관리",
+ "inflow_time_max_min": 90,
+ "secondary_wiring_margin": 1.3,
+ "discharge_time_rule": "배출소요시간 = (배출 대상 유량/SET/사이클) ÷ QIN. 판정: ROUND(필요 배출유량,3) ≤ QIN → 확인. 배출 대상 유량 = 배출장치 설계유입량(잉여슬러지 인발 후). QIN 기준이 맞음 (사용자 확인 2026-10-21)",
+ "dwg_match_tolerance": "1% 또는 0.01 m",
+ "floor_velocity_ref_m_s": [
+  0.15,
+  0.3
+ ]
+}

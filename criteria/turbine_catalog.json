@@ -1,0 +1,183 @@
+{
+ "source": "상원이엔씨 선회와류식 표면포기기 카탈로그 (표5 성능, 표6 수리, 표3 규격)",
+ "note": "60 Hz = 속도범위 최대 rpm 으로 봄 (사용자 확인 2026-10-22). 토출량·순환량은 공칭 선속도 Vu 5.5 m/s 기준",
+ "types": {
+  "900": {
+   "rpm": [
+    62,
+    112
+   ],
+   "o2_kg_h": [
+    3,
+    14
+   ],
+   "shaft_kW": [
+    2.6,
+    5.8
+   ],
+   "P_Vu55_kW": {
+    "ET+1": 6.1,
+    "ET-1": 3.8
+   },
+   "spread_m": 6.0,
+   "splash_m": 0.9,
+   "discharge_m3h": 950,
+   "circulating_m3h": 1400,
+   "A_max_mm": 960,
+   "D_suction_mm": 640,
+   "F_channel_mm": 70,
+   "H_cone_mm": 325,
+   "J_total_mm": 525,
+   "immersion_mm": 70
+  },
+  "1250": {
+   "rpm": [
+    46,
+    78
+   ],
+   "o2_kg_h": [
+    5,
+    28
+   ],
+   "shaft_kW": [
+    4.3,
+    10.5
+   ],
+   "P_Vu55_kW": {
+    "ET+1": 12.5,
+    "ET-1": 8.8
+   },
+   "spread_m": 7.2,
+   "splash_m": 1.05,
+   "discharge_m3h": 2100,
+   "circulating_m3h": 2800,
+   "A_max_mm": 1350,
+   "D_suction_mm": 832,
+   "F_channel_mm": 80,
+   "H_cone_mm": 320,
+   "J_total_mm": 615,
+   "immersion_mm": 80
+  },
+  "1600": {
+   "rpm": [
+    37,
+    62
+   ],
+   "o2_kg_h": [
+    8,
+    52
+   ],
+   "shaft_kW": [
+    7.5,
+    20.0
+   ],
+   "P_Vu55_kW": {
+    "ET+1": 25.0,
+    "ET-1": 20.0
+   },
+   "spread_m": 8.2,
+   "splash_m": 1.2,
+   "discharge_m3h": 3900,
+   "circulating_m3h": 5200,
+   "A_max_mm": 1660,
+   "D_suction_mm": 1085,
+   "F_channel_mm": 105,
+   "H_cone_mm": 495,
+   "J_total_mm": 915,
+   "immersion_mm": 105
+  },
+  "2000": {
+   "rpm": [
+    32,
+    53
+   ],
+   "o2_kg_h": [
+    20,
+    145
+   ],
+   "shaft_kW": [
+    18.3,
+    60.0
+   ],
+   "P_Vu55_kW": {
+    "ET+1": 44.2,
+    "ET-1": 36.0
+   },
+   "spread_m": 9.2,
+   "splash_m": 1.3,
+   "discharge_m3h": 7500,
+   "circulating_m3h": 10000,
+   "A_max_mm": 2100,
+   "D_suction_mm": 1340,
+   "F_channel_mm": 180,
+   "H_cone_mm": 500,
+   "J_total_mm": 1020,
+   "immersion_mm": 180
+  },
+  "2500": {
+   "rpm": [
+    29,
+    41
+   ],
+   "o2_kg_h": [
+    55,
+    195
+   ],
+   "shaft_kW": [
+    40.0,
+    103.0
+   ],
+   "P_Vu55_kW": {
+    "ET+1": 65.3,
+    "ET-1": 51.3
+   },
+   "spread_m": 10.3,
+   "splash_m": 1.5,
+   "discharge_m3h": 13200,
+   "circulating_m3h": 17600,
+   "A_max_mm": 2600,
+   "D_suction_mm": 1670,
+   "F_channel_mm": 220,
+   "H_cone_mm": 510,
+   "J_total_mm": 1160,
+   "immersion_mm": 220
+  },
+  "3150": {
+   "rpm": [
+    23,
+    33
+   ],
+   "o2_kg_h": [
+    90,
+    285
+   ],
+   "shaft_kW": [
+    60.0,
+    123.0
+   ],
+   "P_Vu55_kW": {
+    "ET+1": 112.0,
+    "ET-1": 91.2
+   },
+   "spread_m": 11.5,
+   "splash_m": 1.7,
+   "discharge_m3h": 24000,
+   "circulating_m3h": 32000,
+   "A_max_mm": 3250,
+   "D_suction_mm": 2070,
+   "F_channel_mm": 225,
+   "H_cone_mm": 570,
+   "J_total_mm": 1385,
+   "immersion_mm": 225
+  }
+ },
+ "tank_design": {
+  "S_T_optimum": [
+   2.5,
+   3.5
+  ],
+  "haunch_V_m": "0.15 x H (S:T 2.5~3.5)",
+  "freeboard_min_m": 0.5,
+  "cross_required": "S:T <= 4.0 (콘크리트 또는 철재)"
+ }
+}
