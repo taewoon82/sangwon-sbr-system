@@ -432,6 +432,13 @@ async function draw3D(rows){
     `<br><small>터빈 본체(Ø${Math.round(turbD*1000)}/Ø${Math.round(turbD*1080)})·감속기 형상은 장흥 1250형 제작도 기준 개략, 플로트 반경·가이드레일 위치는 표준 배치 가정입니다. 기둥은 도면의 사각 단면(0.25~1.2m, 토목·주열 레이어)으로 추정하며 보(beam)는 아직 읽지 않습니다.</small>`;
 }
 
+
+// 파일 저장: claude.ai 페이지에서는 저장 확인 창(downloads), 그 외(크롬·데스크톱 앱)는 일반 다운로드
+async function saveFile(blob, filename){
+  try{ if(window.claude && window.claude.use){ const dl=await window.claude.use("downloads"); if(dl){ try{ await dl.save({filename, data:blob}); return true; }catch(e){ if(e&&e.code==="declined") return false; throw e; } } } }catch(e){ if(e&&e.code&&e.code!=="unavailable") throw new Error(e.message||e.code); }
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=filename; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),4000); return true;
+}
+
 // ---------- 검토서 엑셀 ----------
 const TPL_B64 = "__TPL_B64__";
 async function makeXlsx(){
@@ -521,7 +528,8 @@ async function makeXlsx(){
     const tpl=Uint8Array.from(atob(TPL_B64),ch=>ch.charCodeAt(0));
     const out=await xlsxFill(window.JSZip, tpl, cells);
     const blob=new Blob([out],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
-    const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=`설계성과품 검토서_${(proj||"현장").replace(/[\\/:*?"<>|]/g,"")}_${date.replace(/-/g,"")}.xlsx`; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+    const saved=await saveFile(blob, `설계성과품 검토서_${(proj||"현장").replace(/[\\/:*?"<>|]/g,"")}_${date.replace(/-/g,"")}.xlsx`);
+    if(saved===false){ note.innerHTML=`<span class="miss">저장을 취소했습니다. 다시 누르면 저장 창이 뜹니다.</span>`; return; }
     note.innerHTML=`검토서를 만들었습니다 — 값 ${Object.keys(c).length}칸 입력${ng.length?`, 불일치 ${ng.length}건은 6번 기타 사항에 ‘검토’로 기재`:""}. 엑셀을 열면 Q/Cycle·유입시간·배출량·배출소요시간 판정이 계산됩니다.`;
   }catch(err){ note.innerHTML=`<span class="miss">검토서를 만들지 못했습니다: ${h(err.message||err)}</span>`; }
   finally{ btn.disabled=false; }
