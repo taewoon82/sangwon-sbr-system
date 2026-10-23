@@ -39,9 +39,14 @@
 .v10att .chip.ok{background:#e9f5ee;border-color:#9fcfb1;color:#1f5e37}
 .v10att .chip.busy{background:#fff7e0;border-color:#e6c76a;color:#7a5a00}
 .v10att .chip.err{background:#fdecea;border-color:#e3a39b;color:#9b2c20}
+.v10att #attSpec{cursor:pointer}
 .v10att .chip.off{background:#f4f4f4;border-style:dashed;color:#8a8f91}
 .drop.done{border-color:#7fbf96 !important;background:#f1f9f4 !important}
 .drop .v10done{margin-top:6px;color:#1f5e37;font-size:13px}
 .drop .v10done small{color:#5d7a68}
 @media print{.v10att{display:none}}
 @media (max-width:700px){.v10att{padding:8px 12px}.v10att .chip{max-width:100%}}
+
+.v9-top{flex-wrap:wrap}
+#v11drop{flex:1 1 300px}
+#v9drop{flex:1 1 300px}

@@ -1,4 +1,4 @@
-// ===== v10: 설계도면(DWG) 대조 · 첨부 상태 · 펌프·배관 · 검토서 엑셀 출력 (3D 업데이트 중) =====
+// ===== v11: 설계도면(DWG) · 시방서(PDF) 대조 · 첨부 상태 · 검토서 엑셀 출력 (3D 업데이트 중) =====
 const CDN = {
   dwg:  "https://cdn.jsdelivr.net/npm/@mlightcad/libredwg-web@0.7.14/dist/libredwg-web.js",
   wasm: "https://cdn.jsdelivr.net/npm/@mlightcad/libredwg-web@0.7.14/wasm/",
@@ -48,6 +48,9 @@ function capExtra(wb){
         if((m=s.match(/^(\d+(?:\.\d+)?)\s*kw$/i))) out.winch={v:+m[1], at:name+"!"+XLSX.utils.encode_cell({r:i,c})}; }); } }
   const aer = range(/산기|포기|혼합/);
   out.o2 = find(aer,/▶\s*용\s*량/);
+  if(out.o2 && aer){ for(let i=aer[0];i<aer[1];i++){ const r=rows[i]||[]; if(!r.some(v=>v!=null&&/▶\s*용\s*량/.test(String(v)))) continue;
+      const vs=[]; r.forEach((v,c)=>{ if(typeof v==="number"&&isFinite(v)&&r.slice(c+1,c+3).some(u=>u!=null&&/kg\s*O/i.test(String(u)))) vs.push({v,c}); });
+      if(vs.length>1){ const mx=vs.reduce((a,b)=>b.v>a.v?b:a); out.o2={v:mx.v, at:name+"!"+XLSX.utils.encode_cell({r:i,c:mx.c}), cases:vs.map(o=>o.v)}; } break; } }
   return out;
 }
 
@@ -71,7 +74,8 @@ function model(){
   const lv=(a,b)=>a!=null&&b!=null? Math.round((a-b)*1000)/1000 : null;
   add("SBR 반응조","W","가로 W","m",W, V9.pick.W ?? pW.v,{cands:pW.cands, src:"웹앱 Ⓑ (용량계산서)"});
   add("SBR 반응조","L","세로 L","m",L, V9.pick.L ?? pL.v,{cands:pL.cands});
-  add("SBR 반응조","He","HWL 수심 (유효수심)","m",T, s?lv(s.hwl,s.bottom):null,{dnote:s&&s.hwl!=null?`HWL EL.${s.hwl} − 바닥 EL.${s.bottom}`:""});
+  const noLv = D && D.sbr && D.sbr.cand && !D.sbr.cand.hwl.length && !D.sbr.cand.el.length;
+  add("SBR 반응조","He","HWL 수심 (유효수심)","m",T, s?lv(s.hwl,s.bottom):null,{dnote:s&&s.hwl!=null?`HWL EL.${s.hwl} − 바닥 EL.${s.bottom}`: noLv?"도면에 수위·EL 표기 없음 (평면도) — 단면도 필요":""});
   add("SBR 반응조","Lw","LWL 수심","m",null, s?lv(s.lwl,s.bottom):null,{dnote:s&&s.lwl!=null?`LWL EL.${s.lwl}`:""});
   add("SBR 반응조","Fb","여유고 (HWL ~ 상부)","m",null, s?lv(s.top,s.hwl):null,{dnote:s&&s.top!=null?`상부 EL.${s.top}`:""});
   add("SBR 반응조","N","반응조 지수","지",nT, D&&D.sbr.n);
@@ -90,17 +94,28 @@ function model(){
   const sz=($("hSize")?.textContent||"").match(/(\d{3,4})/);
   add("포기장치 · 배출장치","turb","포기장치 터빈 (웹앱 선정)","Ø mm", sz?+sz[1]:null, null,{dtxt:D&&D.aerator?`${D.aerator.code} ${D.aerator.name}`:"", xsrc:"웹앱 선정",noCmp:1});
   add("포기장치 · 배출장치","kw","설계 소요동력 (웹앱, 여유율 적용)","kW", designKW(), null,{xsrc:"웹앱 산정",noCmp:1});
-  add("포기장치 · 배출장치","o2","산소공급능력 (지당)","kgO₂/h", val(X.o2), null,{noCmp:1});
+  add("포기장치 · 배출장치","o2","산소공급능력 (지당, 최대 케이스)","kgO₂/h", val(X.o2), null,{noCmp:1, xsrc:X.o2&&X.o2.cases?`케이스별 ${X.o2.cases.join(" / ")}`:""});
   const dp=D&&D.decPipe;
   add("포기장치 · 배출장치","dsz","배출장치 구경","A", val(X.decSize), dp?dp.a:null,{dtxt:D&&D.decanter?`${D.decanter.code} ${D.decanter.name}`:"", dnote:dp?`반응조 주변 처리수(TW) 배관 표기 ${dp.n}곳${Object.keys(dp.sizes).length>1?` (그 외 ${Object.entries(dp.sizes).filter(([a])=>+a!==dp.a).map(([a,n])=>a+"A "+n+"곳").join(", ")})`:""}${D.decanter?` · ${D.decanter.code} ${D.decanter.name}`:""}`:""});
   add("포기장치 · 배출장치","qin","배출유량 (QIN)","L/s", val(X.qin), null,{noCmp:1});
   add("포기장치 · 배출장치","decQ","배출 대상 유량 (잉여슬러지 인발 후)","㎥/d", val(X.decQ), null,{noCmp:1});
   add("포기장치 · 배출장치","winch","전동윈치 동력","kW", val(X.winch), null,{noCmp:1});
   add("포기장치 · 배출장치","dt","배출단계 시간","hr", X.decMin? Math.round(X.decMin.v/60*1000)/1000 : null, null,{noCmp:1});
-  add("포기장치 · 배출장치","hoist","반응조 상부 호이스트","", null, null,{dtxt:D? (D.hoist?`있음 · ${D.hoist.code} ${D.hoist.name}`:"도면에서 못 찾음"):"",noCmp:1});
+  add("포기장치 · 배출장치","hoist","반응조 상부 호이스트","", null, null,{dtxt:D? (D.hoist?`있음 · ${D.hoist.code} ${hoistName(D.hoist.name)}`:"도면에서 못 찾음"):"",noCmp:1});
   if(D){ const pp=D.pumps||{}, pt=(p,miss)=>p?`${p.code} ${p.name}${p.others&&p.others.length?` (그 외 ${p.others.join(", ")})`:""} · 구경·용량·동력은 장비일람표 확인`:miss;
     add("펌프 (도면)","feedP","공급펌프 (유량조정조 → 반응조)","",null,null,{noCmp:1,dtxt:pt(pp.feed,"도면에서 못 찾음")});
     add("펌프 (도면)","effP","처리수 이송(총인 공급) 펌프","",null,null,{noCmp:1,dtxt:pt(pp.eff,"도면에서 못 찾음")}); }
+  const SP=V9.spec;
+  if(SP){ const u=(e,k)=>e&&e[k]?e[k]:null, cv=(e,unit)=>{ const c=u(e,"cap"); if(!c) return null; if(c.unit===unit) return c.v; if(unit==="㎥/min"&&c.unit==="㎥/h") return Math.round(c.v/60*1000)/1000; if(unit==="㎥/min"&&c.unit==="㎥/d") return Math.round(c.v/1440*1000)/1000; return null; };
+    const sx=(e)=>e?`${e.no} ${e.name} (${e.tag})`:"시방서에 없음";
+    add("시방서 (장비 사양)","sAerKw","포기장치 동력 (시방서)","kW", designKW(), u(SP.aer,"kw")?SP.aer.kw.v:null,{xsrc:"웹앱 설계 소요동력",dnote:SP.aer?`${sx(SP.aer)} ${SP.aer.kw?SP.aer.kw.label:""}${SP.aer.kwNote?" · "+SP.aer.kwNote:""}`:"",cmp:"ge"});
+    add("시방서 (장비 사양)","sAerO2","포기장치 용량 (시방서)","kgO₂/h", val(X.o2), SP.aer&&SP.aer.cap&&SP.aer.cap.unit==="kgO₂/h"?SP.aer.cap.v:null,{xsrc:"계산서 최대",dnote:SP.aer?sx(SP.aer):"",cmp:"ge"});
+    add("시방서 (장비 사양)","sDecQ","배출장치 용량 (시방서)","L/s", val(X.qin), SP.dec&&SP.dec.cap&&SP.dec.cap.unit==="L/s"?SP.dec.cap.v:null,{xsrc:"계산서 QIN",dnote:SP.dec?sx(SP.dec):"",cmp:"ge"});
+    add("시방서 (장비 사양)","sWinch","배출장치(윈치) 동력 (시방서)","kW", val(X.winch), u(SP.dec,"kw")?SP.dec.kw.v:null,{dnote:SP.dec?sx(SP.dec):"",noCmp:!val(X.winch)});
+    add("시방서 (장비 사양)","sFeedQ","공급펌프 용량 (시방서)","㎥/min", null, cv(SP.feed,"㎥/min"),{dnote:sx(SP.feed),noCmp:1});
+    add("시방서 (장비 사양)","sFeedKw","공급펌프 동력 (시방서)","kW", null, u(SP.feed,"kw")?SP.feed.kw.v:null,{noCmp:1});
+    add("시방서 (장비 사양)","sTp","총인설비 처리용량 (시방서)","㎥/d", num("q_0")||null, SP.tp&&SP.tp.cap&&SP.tp.cap.unit==="㎥/d"?SP.tp.cap.v:null,{xsrc:"설계유량",dnote:SP.tp?sx(SP.tp):"",cmp:"ge"});
+  }
   const P=planLayout(A0(rows,"W"),A0(rows,"L"),A0(rows,"N"));
   if(P){ const inside=P.cols.filter(c=>c.inside).length;
     add("평면 배치 (도면)","pos","포기장치 위치 (반응조 중심 기준)","m",null,null,{noCmp:1,dtxt:P.aer.filter(Boolean).length?P.aer.map((a,i)=>a?`#${i+1} ${Math.abs(a.ox)<0.05&&Math.abs(a.oz)<0.05?"중심":`편심 x${a.ox>=0?"+":""}${n2(a.ox)} · y${a.oz>=0?"+":""}${n2(a.oz)}`} (${a.src})`:`#${i+1} 못 찾음`).join(" / "):"도면에서 못 찾음 → 중심 가정"});
@@ -110,9 +125,11 @@ function model(){
   V9.plan=P;
   for(const r of rows){
     r.apply = V9.over[r.key]!=null ? V9.over[r.key] : (r.xls ?? r.dwg ?? null);
+    if(r.cmp==="ge" && r.xls!=null && r.dwg!=null){ r.st = r.dwg >= r.xls*0.995 ? "충족" : "부족"; continue; }
     if(r.xls!=null && r.dwg!=null){ const d=Math.abs(r.xls-r.dwg), tol=Math.max(0.01, Math.abs(r.xls)*0.01); r.st = d<=tol?"일치":"불일치"; }
     else if(r.noCmp) r.st="";
     else r.st = r.xls!=null? "계산서만" : r.dwg!=null? "도면만" : "";
+    if(r.key==="N" && r.st==="불일치" && V9.spec && V9.spec.aer && V9.spec.aer.qtyAll && r.dwg===V9.spec.aer.qtyAll && r.xls===V9.spec.aer.qty){ r.st="단계"; r.dnote=`도면 ${r.dwg}지 = ${V9.spec.aer.phases}단계 전체 · 금회 ${r.xls}지 (시방서 수량)`; }
   }
   return rows;
 }
@@ -177,11 +194,13 @@ function planLayout(W,L,nT){
   return {rects:rects.map(r=>({x0:toXr.f(r.x0),x1:toXr.f(r.x1),z0:toZr.f(r.y1),z1:toZr.f(r.y0)})),aer,dec,cols};
 }
 function designKW(){ const t=($("powerOut")?.innerText||""); const m=t.match(/설계 소요동력[\s\S]*?([\d.,]+)\s*kW/); return m? parseFloat(m[1].replace(/,/g,"")) : null; }
+function hoistName(s){ return String(s||"").replace(/(호이스트(?:\s*[A-Z](?![가-힣]))?).*$/,"$1"); }
+function noLevel(){ const D=V9.dwg; return !!(D && D.sbr && D.sbr.cand && !D.sbr.cand.hwl.length && !D.sbr.cand.el.length); }
 const A = (rows,k) => { const r=rows.find(r=>r.key===k); return r? r.apply : null; };
 
 // ---------- 대조표 렌더 ----------
 function renderCmp9(){
-  const rows=model(); let html=`<tr><th>구분</th><th>항목</th><th>단위</th><th>용량계산서 · 웹앱</th><th>설계도면 (DWG)</th><th>대조</th><th>적용값</th></tr>`, g="";
+  const rows=model(); let html=`<tr><th>구분</th><th>항목</th><th>단위</th><th>용량계산서 · 웹앱</th><th>설계도면 (DWG) · 시방서</th><th>대조</th><th>적용값</th></tr>`, g="";
   for(const r of rows){
     if(r.grp!==g){ g=r.grp; html+=`<tr class="grp"><td colspan="7">${g}</td></tr>`; }
     let dcell = r.dtxt!=null && r.dwg==null ? h(r.dtxt||"–") : n2(r.dwg);
@@ -190,7 +209,7 @@ function renderCmp9(){
       dcell = `<select data-pick="${r.key}"><option value="">${cur==null?"선택 (자동판별 실패)":"–"}</option>${r.cands.map(c=>`<option value="${c.v}" ${cur!=null&&Math.abs(cur-c.v)<1e-6?"selected":""}>${n2(c.v)} m (${c.n}회)</option>`).join("")}</select>`;
     }
     if(r.dnote) dcell += ` <small>${h(r.dnote)}</small>`;
-    const st = r.st==="일치"?`<span class="ok">일치</span>`: r.st==="불일치"?`<span class="ng">불일치</span>`: r.st?`<span class="one">${r.st}</span>`:"";
+    const st = r.st==="일치"||r.st==="충족"||r.st==="단계"?`<span class="ok">${r.st}</span>`: r.st==="불일치"||r.st==="부족"?`<span class="ng">${r.st}</span>`: r.st?`<span class="one">${r.st}</span>`:"";
     const ap = ["hoist","pos","decpos","cols","feedP","effP"].includes(r.key) ? h(r.dtxt||"–") : `<input type="number" step="0.01" data-ap="${r.key}" value="${r.apply??""}">`;
     html+=`<tr><td></td><td class="lab">${r.lab}</td><td>${r.unit}</td><td>${n2(r.xls)}${r.xsrc?` <small>${r.xsrc}</small>`:""}</td><td>${dcell}</td><td>${st}</td><td>${ap}</td></tr>`;
   }
@@ -201,12 +220,12 @@ function renderCmp9(){
     (D?`설계도면: <b>${h(V9.dwgName)}</b> — 문자 ${D.nText.toLocaleString()}개 · 치수 ${D.nDim.toLocaleString()}개 해석. 수위는 SBR 라벨 주변 HWL·LWL·EL 문자에서, 가로·세로는 라벨을 가로지르는 치수 중 계산서 값과 맞는 것을 찾습니다. 맞는 치수가 없으면 후보에서 직접 고르세요.`:`설계도면을 아직 불러오지 않았습니다.`)+
     (ng.length?`<br><b class="ng">불일치 ${ng.length}건:</b> ${ng.map(r=>`${r.grp} ${r.lab} (계산서 ${n2(r.xls)} / 도면 ${n2(r.dwg)})`).join(", ")} — 검토서 6번 기타 사항에 자동으로 올라갑니다.`:"");
   draw3D(rows); updAtt();
-  try{ localStorage.setItem(V9KEY, JSON.stringify({xls:V9.xls,xlsName:V9.xlsName,dwg:V9.dwg,dwgName:V9.dwgName,over:V9.over,pick:V9.pick,designer:$("v9designer").value,reviewer:$("v9reviewer").value})); }catch(e){}
+  try{ localStorage.setItem(V9KEY, JSON.stringify({xls:V9.xls,xlsName:V9.xlsName,dwg:V9.dwg,dwgName:V9.dwgName,spec:V9.spec,specName:V9.specName,over:V9.over,pick:V9.pick,designer:$("v9designer").value,reviewer:$("v9reviewer").value})); }catch(e){}
 }
 
 
 // ---------- 첨부 상태 (v10) ----------
-const ATT={dwgBusy:false, dwgErr:"", restored:false};
+const ATT={dwgBusy:false, dwgErr:"", specBusy:false, specErr:"", restored:false};
 function updAtt(){
   const xn = V9.xlsName || (typeof state!=="undefined" && state.pdfName) || "";
   const set=(id,ok,label,detail,cls)=>{ const e=$(id); if(!e) return; e.className="chip "+(cls||(ok?"ok":"no")); e.innerHTML=`${label} <b>${detail}</b>`; e.title=ok?detail.replace(/<[^>]+>/g,""):""; };
@@ -216,8 +235,11 @@ function updAtt(){
   if(ATT.dwgBusy) set("attDwg", false, "📐 설계도면", "해석 중…", "busy");
   else if(ATT.dwgErr) set("attDwg", false, "📐 설계도면", "읽기 실패 — 아래 Ⓓ 안내 확인", "err");
   else set("attDwg", !!D, "📐 설계도면", D? `✓ ${h(V9.dwgName)} <small>문자 ${D.nText.toLocaleString()} · 치수 ${D.nDim.toLocaleString()}</small>${rs}` : "미첨부");
+  if(ATT.specBusy) set("attSpec", false, "📑 시방서·장비일람표", "읽는 중…", "busy");
+  else if(ATT.specErr) set("attSpec", false, "📑 시방서·장비일람표", "읽기 실패", "err");
+  else set("attSpec", !!V9.spec, "📑 시방서·장비일람표", V9.spec? `✓ ${h(V9.specName)} <small>기기 ${V9.spec.items.length}개</small>${rs}` : "미첨부");
   const mark=(id,name)=>{ const e=$(id); if(!e) return; let s=e.querySelector(".v10done"); if(!name){ e.classList.remove("done"); if(s) s.remove(); return; } e.classList.add("done"); if(!s){ s=document.createElement("div"); s.className="v10done"; e.appendChild(s); } s.innerHTML=`✓ 첨부됨: <b>${h(name)}</b> <small>(다른 파일을 올리면 바꿉니다)</small>`; };
-  mark("drop", xn); mark("v9drop", D&&!ATT.dwgBusy? V9.dwgName : "");
+  mark("drop", xn); mark("v9drop", D&&!ATT.dwgBusy? V9.dwgName : ""); mark("v11drop", V9.spec&&!ATT.specBusy? V9.specName : "");
 }
 
 // ---------- DWG 불러오기 ----------
@@ -242,6 +264,28 @@ async function loadDwg(file){
     renderCmp9();
   }catch(e){ ATT.dwgErr=String(e&&e.message||e); st.innerHTML=`<span class="miss">도면을 읽지 못했습니다: ${h(e&&e.message?e.message:e)}</span>`; }
   finally{ sec.classList.remove("v9-busy"); ATT.dwgBusy=false; updAtt(); }
+}
+
+
+// ---------- 시방서 · 장비일람표 (PDF) 불러오기 (v11) ----------
+async function loadSpec(file){
+  const st=$("v9stat");
+  try{
+    ATT.specBusy=true; ATT.specErr=""; updAtt();
+    st.innerHTML=`<b>${h(file.name)}</b> — 시방서 읽는 중…`; await tick();
+    if(!/\.pdf$/i.test(file.name)) throw new Error("PDF 파일만 읽습니다 (HWP는 PDF로 저장해서 올려주세요)");
+    const {pages}=await readPdf(new Uint8Array(await file.arrayBuffer()));
+    const lines=specLinesFromPages(pages);
+    if(lines.length<5) throw new Error("글자를 읽지 못했습니다 — 스캔(이미지) PDF일 수 있습니다");
+    const R=specParse(lines);
+    if(!R.items.length) throw new Error("‘2.1 포기장치(M-201)’처럼 기기번호가 붙은 항목 제목을 찾지 못했습니다");
+    V9.spec=R; V9.specName=file.name;
+    const f=e=>e?`${e.name} ${e.tag}${e.cap?` · ${e.cap.v.toLocaleString()} ${e.cap.unit}`:""}${e.kw?` · ${e.kw.v} kW`:""}${e.qty?` · 금회 ${e.qty}대${e.qtyAll?`/전체 ${e.qtyAll}대`:""}`:""}`:"";
+    st.innerHTML=`<b>${h(file.name)}</b> — 시방서 ${pages.length}쪽에서 기기 ${R.items.length}개를 읽었습니다: ${R.items.map(e=>h(f(e))).join(" / ")}.`+
+      `${!R.feed?` <span class="miss">공급펌프 사양은 이 시방서에 없습니다(장비일람표·기계 시방서 필요).</span>`:""}`;
+    renderCmp9();
+  }catch(e){ ATT.specErr=String(e&&e.message||e); st.innerHTML=`<span class="miss">시방서를 읽지 못했습니다: ${h(e&&e.message?e.message:e)}</span>`; }
+  finally{ ATT.specBusy=false; updAtt(); }
 }
 
 // ---------- 3D ----------
@@ -407,12 +451,24 @@ async function makeXlsx(){
     const he=rows.find(x=>x.key==="He"); if(he&&he.st) { set("F42", he.st==="일치"?"확인":"검토"); set("H42",cmpTxt("He")); }
     const tb=A(rows,"turb"); set("D49",tb); set("G49",`웹앱 선정 ${($("hSize").textContent||"").trim()} · 설계 소요동력 ${n2(designKW())} kW · 운전점 산소전달 ${($("hO2").textContent||"").replace(/kgO₂\/h/,"").trim()} kgO₂/h`);
     set("D50",A(rows,"o2")); set("H51",`웹앱 설계 소요동력 ${n2(designKW())} kW (참고)`);
-    if(D){ set("D56",D.hoist?"있음":"없음"); if(D.hoist){ set("F56","확인"); set("G56",`${D.hoist.code} ${D.hoist.name}`); } else set("F56","검토"); }
+    if(D){ set("D56",D.hoist?"있음":"없음"); if(D.hoist){ set("F56","확인"); set("G56",`${D.hoist.code} ${hoistName(D.hoist.name)}`); } else set("F56","검토"); }
     set("D58",A(rows,"qin")); set("D59",A(rows,"dsz")); set("D60",A(rows,"winch")); set("D61",A(rows,"dt")); set("D62",A(rows,"decQ"));
     if(D){ const pp=D.pumps||{};
       if(pp.feed){ const t=`도면 ${pp.feed.code} ${pp.feed.name}`; set("H29",t+" · 구경 장비일람표 확인"); set("H30",t+" · 용량 장비일람표 확인"); set("H31",t+" · 동력 장비일람표 확인"); }
       if(pp.eff){ const t=`도면 ${pp.eff.code} ${pp.eff.name}`; set("H94",t+" · 용량 장비일람표 확인"); set("H95",t+" · 구경 장비일람표 확인"); }
-      const dsr=rows.find(r=>r.key==="dsz"); if(dsr&&dsr.xls==null&&dsr.dwg!=null&&V9.over.dsz==null) set("H59",`도면 처리수(TW) 배관 ${dsr.dwg}A 표기 기준 (반응조 주변 ${D.decPipe.n}곳) — 장비일람표 확인`); }
+      const dsr=rows.find(r=>r.key==="dsz");
+      if(noLevel()){ set("H39","도면(평면도)에 수위 표기 없음 — 단면도 확인"); set("H41","도면(평면도)에 수위 표기 없음 — 단면도 확인"); } if(dsr&&dsr.xls==null&&dsr.dwg!=null&&V9.over.dsz==null) set("H59",`도면 처리수(TW) 배관 ${dsr.dwg}A 표기 기준 (반응조 주변 ${D.decPipe.n}곳) — 장비일람표 확인`); }
+    const SP=V9.spec;
+    if(SP){ const g=(k)=>rows.find(r=>r.key===k)||{};
+      if(SP.aer){ if(SP.aer.kw){ set("D52",SP.aer.kw.v); set("H52",`시방서 ${SP.aer.no} ${SP.aer.name}(${SP.aer.tag}) ${SP.aer.kw.label}${SP.aer.kwNote?" · "+SP.aer.kwNote:""}`); const r=g("sAerKw"); if(r.st){ set("H51",`웹앱 설계 소요동력 ${n2(designKW())} kW · 시방서 ${SP.aer.kw.v} kW ${r.st==="충족"?"≥":"<"} 웹앱`); } }
+        if(SP.aer.cap&&SP.aer.cap.unit==="kgO₂/h"){ const r=g("sAerO2"); set("G50",`시방서 ${SP.aer.cap.v} kgO₂/h ${r.st==="충족"?"≥":"<"} 계산서 최대 ${n2(A(rows,"o2"))}`); set("F50", r.st==="충족"?"확인":r.st==="부족"?"부적합":""); } }
+      if(SP.dec){ if(SP.dec.cap&&SP.dec.cap.unit==="L/s"){ const r=g("sDecQ"); set("G58",`시방서 배출장치 ${SP.dec.cap.v} L/s ${r.st==="충족"?"≥":"<"} 계산서 QIN ${n2(A(rows,"qin"))} L/s`); set("F58", r.st==="충족"?"확인":r.st==="부족"?"부적합":""); }
+        if(SP.dec.kw && A(rows,"winch")==null){ c["D60"]=SP.dec.kw.v; set("H60",`시방서 ${SP.dec.no} ${SP.dec.name}(${SP.dec.tag}) ${SP.dec.kw.label}${SP.dec.kwNote?" · "+SP.dec.kwNote:""}`); } }
+      if(SP.feed){ if(SP.feed.size) set("D29",SP.feed.size); const q=g("sFeedQ").dwg; if(q!=null) set("D30",q); if(SP.feed.kw) set("D31",SP.feed.kw.v); set("H30",`시방서 ${SP.feed.no} ${SP.feed.name}(${SP.feed.tag})${SP.feed.cap?" "+SP.feed.cap.raw:""}`); }
+      if(SP.eff){ const e=SP.eff, cm=e.cap&&e.cap.unit==="㎥/min"?e.cap.v:e.cap&&e.cap.unit==="㎥/h"?Math.round(e.cap.v/60*1000)/1000:null; if(cm!=null) set("D94",cm); if(e.size) set("D95",e.size); set("H94",`시방서 ${e.no} ${e.name}(${e.tag})`); }
+      if(SP.tp&&SP.tp.cap&&SP.tp.cap.unit==="㎥/d"){ const r=g("sTp"); set("D91",SP.tp.cap.v); set("H91",`시방서 ${SP.tp.no} ${SP.tp.name}(${SP.tp.tag}) ${SP.tp.cap.raw}`); if(r.st) set("G91",`설계유량 ${n2(num("q_0"))} ㎥/d 대비 ${r.st}`); if(r.st) set("F91",r.st==="충족"?"확인":"부적합"); }
+      const nr=g("N"); if(nr.st==="단계") set("H13",nr.dnote);
+    }
     set("H85",cmpTxt("efW")); set("H86",cmpTxt("efL")); set("H87",cmpTxt("efHe"));
     if(V9.geo){ const g=V9.geo; set("G45",`도면 기준 포기장치 ${g.pos} · 플로트 외곽~벽체 ${n2(g.clr)} m · 주변 기둥 ${g.nCol}개(반응조 내부 ${g.inside}개)${g.cmin!=null?` · 최근접 기둥 ${n2(g.cmin)} m`:""} — 보·핸드레일은 별도 확인`); set("F45", g.inside||g.clr<1?"검토":"확인"); }
     set("D85",A(rows,"efW")); set("D86",A(rows,"efL")); set("D87",A(rows,"efHe")); set("D88",A(rows,"efN"));
@@ -435,6 +491,9 @@ async function makeXlsx(){
   const f=$("v9file");
   $("v9drop").addEventListener("click",()=>f.click());
   f.addEventListener("change",()=>{ if(f.files[0]) loadDwg(f.files[0]); f.value=""; });
+  const sf=$("v11file"); $("v11drop").addEventListener("click",()=>sf.click()); sf.addEventListener("change",()=>{ if(sf.files[0]) loadSpec(sf.files[0]); sf.value=""; });
+  $("attSpec").style.cursor="pointer"; $("attSpec").addEventListener("click",()=>sf.click());
+  ["v9drop","v11drop"].forEach(id=>{ const z=$(id); z.addEventListener("dragover",e=>{e.preventDefault();}); z.addEventListener("drop",e=>{ e.preventDefault(); e.stopPropagation(); const fl=e.dataTransfer.files[0]; if(!fl) return; if(/\.pdf$/i.test(fl.name)&&id==="v11drop") loadSpec(fl); else if(/\.(dwg|dxf)$/i.test(fl.name)) loadDwg(fl); else if(/\.pdf$/i.test(fl.name)) loadSpec(fl); }); });
   const pf=$("pdfFile"); pf.setAttribute("accept", pf.getAttribute("accept")+",.dwg,.dxf");
   const orig = window.importPdf;
   window.importPdf = async function(file){
@@ -458,10 +517,10 @@ async function makeXlsx(){
   $("v9glb")&&$("v9glb").addEventListener("click",async()=>{ if(!G3.root) return; const {GLTFExporter}=await import(CDN.gltf); new GLTFExporter().parse(G3.root, r=>{ const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([r],{type:"model/gltf-binary"})); a.download=`3D_${($("siteName").value||"현장").trim()}.glb`; a.click(); }, err=>alert(err), {binary:true}); });
   $("v9xlsx").addEventListener("click",makeXlsx);
   ["v9designer","v9reviewer"].forEach(id=>$(id).addEventListener("input",()=>{ try{ const o=JSON.parse(localStorage.getItem(V9KEY)||"{}"); o.designer=$("v9designer").value; o.reviewer=$("v9reviewer").value; localStorage.setItem(V9KEY,JSON.stringify(o)); }catch(e){} }));
-  try{ const o=JSON.parse(localStorage.getItem(V9KEY)||"null"); if(o){ ATT.restored=!!(o.xlsName||o.dwgName); V9.xls=o.xls||null; V9.xlsName=o.xlsName||''; V9.dwg=o.dwg||null; V9.dwgName=o.dwgName||""; V9.over=o.over||{}; V9.pick=o.pick||{}; $("v9designer").value=o.designer||""; $("v9reviewer").value=o.reviewer||""; } }catch(e){}
+  try{ const o=JSON.parse(localStorage.getItem(V9KEY)||"null"); if(o){ ATT.restored=!!(o.xlsName||o.dwgName||o.specName); V9.spec=o.spec||null; V9.specName=o.specName||""; V9.xls=o.xls||null; V9.xlsName=o.xlsName||''; V9.dwg=o.dwg||null; V9.dwgName=o.dwgName||""; V9.over=o.over||{}; V9.pick=o.pick||{}; $("v9designer").value=o.designer||""; $("v9reviewer").value=o.reviewer||""; } }catch(e){}
   { const b=$("resetAllBtn"); if(b) b.addEventListener("click",()=>setTimeout(()=>{ if(b.classList.contains("arm")) return;
-      V9.xls=null; V9.xlsName=""; V9.dwg=null; V9.dwgName=""; V9.over={}; V9.pick={}; ATT.restored=false; ATT.dwgErr="";
+      V9.xls=null; V9.xlsName=""; V9.dwg=null; V9.dwgName=""; V9.spec=null; V9.specName=""; V9.over={}; V9.pick={}; ATT.restored=false; ATT.dwgErr=""; ATT.specErr="";
       try{ if(typeof state!=="undefined"){ state.pdfName=null; } localStorage.removeItem(V9KEY); }catch(e){}
-      $("v9stat").innerHTML="① 위에서 용량계산서 엑셀을 불러오고 ② 설계도면 DWG를 불러오면, 두 자료를 대조해 검토서 엑셀을 만듭니다."; renderCmp9(); },0)); }
+      $("v9stat").innerHTML="① 위에서 용량계산서 엑셀을 불러오고 ② 설계도면 DWG ③ 시방서 PDF를 불러오면, 자료를 대조해 검토서 엑셀을 만듭니다."; renderCmp9(); },0)); }
   renderCmp9();
 })();

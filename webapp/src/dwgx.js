@@ -90,7 +90,7 @@ function dwgExtract(entities){
     const arr=Object.values(by).sort((a,b)=>a.d-b.d||b.n-a.n); return arr[0]? {...arr[0], others:arr.slice(1).filter(o=>o.d<Math.max(arr[0].d*3,15000*unit)).slice(0,3).map(o=>o.code)} : null; };
   const pumps={
     feed: pumpOf(/^(유량조정조(공급|이송)?|공급|SBR공급|반응조공급|원수공급)펌프$/, eqLabs.length?eqLabs:sbrLabs),
-    eff:  pumpOf(/^(처리수(이송|공급)?|총인(설비)?공급|처리수조이송)펌프$/, efLabs.length?efLabs:sbrLabs)
+    eff:  pumpOf(/^(처리수(이송|공급)?|총인(설비|처리|처리설비)?공급|처리수조이송)펌프$/, efLabs.length?efLabs:sbrLabs)
   };
   const tw={}; let twN=0; for(const p of pipes){ if(/^TW/.test(p.svc) && sbrLabs.some(l=>dist(l,p)<8000*unit)){ tw[p.a]=(tw[p.a]||0)+1; twN++; } }
   const twTop=Object.entries(tw).sort((a,b)=>b[1]-a[1])[0];
