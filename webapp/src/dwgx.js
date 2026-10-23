@@ -76,6 +76,25 @@ function dwgExtract(entities){
   const sbrLabs=T.filter(t=>/SBR\s*반응조/i.test(t.s));
   const nearSbr=code=>tags.some(t=>t.code===code && sbrLabs.some(l=>dist(t,l)<16000*unit));
   const has=re=>eqList.filter(e=>re.test(e.name)).sort((a,b)=>(nearSbr(b.code)-nearSbr(a.code))||b.count-a.count)[0];
+  // 펌프 (도면 기기명 + 태그) · 배관 표기 ('150A-TW-STS')
+  const PIPE=/^(\d{2,3})A-([A-Za-z]+)(?:-|$)/;
+  const pipes=T.map(t=>{ const m=t.s.match(PIPE); return m?{x:t.x,y:t.y,a:+m[1],svc:m[2].toUpperCase()}:null; }).filter(Boolean);
+  const eqLabs=T.filter(t=>/유량\s*조정조/.test(t.s)), efLabs=T.filter(t=>/처리수조/.test(t.s));
+  const BASE=/(\d?M-\d{3})/;
+  const pumpOf=(nameRe, refs)=>{ const by={};
+    for(const t of T){ const k=t.s.replace(/\s/g,""); if(k.length>16||!nameRe.test(k)) continue;
+      const tg=T.filter(o=>CODE.test(o.s)&&dist(o,t)<1600*unit).sort((a,b)=>dist(a,t)-dist(b,t))[0]; if(!tg) continue;
+      const base=(tg.s.match(BASE)||[])[1]; if(!base) continue; const disp=tg.s.match(CODE)[1];
+      const dRef=refs.length?Math.min(...refs.map(l=>dist(l,t))):1e12;
+      const o=by[base]||(by[base]={code:disp,name:k,d:dRef,n:0}); o.n++; if(disp.length>o.code.length) o.code=disp; if(dRef<o.d) o.d=dRef; }
+    const arr=Object.values(by).sort((a,b)=>a.d-b.d||b.n-a.n); return arr[0]? {...arr[0], others:arr.slice(1).filter(o=>o.d<Math.max(arr[0].d*3,15000*unit)).slice(0,3).map(o=>o.code)} : null; };
+  const pumps={
+    feed: pumpOf(/^(유량조정조(공급|이송)?|공급|SBR공급|반응조공급|원수공급)펌프$/, eqLabs.length?eqLabs:sbrLabs),
+    eff:  pumpOf(/^(처리수(이송|공급)?|총인(설비)?공급|처리수조이송)펌프$/, efLabs.length?efLabs:sbrLabs)
+  };
+  const tw={}; let twN=0; for(const p of pipes){ if(/^TW/.test(p.svc) && sbrLabs.some(l=>dist(l,p)<8000*unit)){ tw[p.a]=(tw[p.a]||0)+1; twN++; } }
+  const twTop=Object.entries(tw).sort((a,b)=>b[1]-a[1])[0];
+  const decPipe = twTop? {a:+twTop[0], n:twTop[1], total:twN, sizes:tw} : null;
   const near20=p=>sbrLabs.some(l=>dist(p,l)<22000*unit);
   const blocks={aer:INS.filter(b=>/포기장치|aerator|turbine/i.test(b.name)&&near20(b)).map(b=>({x:b.x,y:b.y,rot:b.rot,name:b.name})),
                 dec:INS.filter(b=>/배출장치|decanter/i.test(b.name)&&near20(b)).map(b=>({x:b.x,y:b.y,rot:b.rot,name:b.name}))};
@@ -83,6 +102,7 @@ function dwgExtract(entities){
   const decPts=DECP.filter(p=>near20(p)).slice(0,4000);
   const seen=new Set(); const cols=SQ.filter(c=>near20(c)).filter(c=>{ const k=Math.round(c.x/50)+","+Math.round(c.y/50); if(seen.has(k)) return false; seen.add(k); return true; });
   return {unit, nText:T.length, nDim:D.length, sbr, eq, ef, equipment:eqList, blocks, cols, cir, decPts,
+    pumps, decPipe,
     hoist:has(/호이스트/), aerator:has(/포기장치/), decanter:has(/배출장치/), pump:has(/공급\s*펌프/),
     bops: levels.filter(t=>t.bop!=null).map(t=>({v:t.bop, s:t.s}))};
 }

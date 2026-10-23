@@ -29,3 +29,19 @@
 #v9upd .v9upd-badge{display:inline-block;background:#e0b000;color:#2b2300;font-weight:700;font-size:15px;padding:5px 14px;border-radius:14px;margin-bottom:10px}
 #v9upd p{margin:6px 0;font-size:14px;line-height:1.6}
 #v9upd small{color:#7a6f5a}
+
+/* v10 첨부 상태 */
+.v10att{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:8px 20px;border-bottom:1px solid var(--line,#d8ddd9);background:var(--surface,#fff);font-size:13px;position:sticky;top:0;z-index:20}
+.v10att .t{font-weight:700;color:#3d4a4f;margin-right:4px}
+.v10att .chip{display:inline-flex;gap:6px;align-items:center;border:1px solid #cfd6d9;border-radius:14px;padding:3px 11px;background:#f4f6f7;color:#56656a;max-width:520px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.v10att .chip b{font-weight:600;overflow:hidden;text-overflow:ellipsis}
+.v10att .chip small{font-weight:400;opacity:.75}
+.v10att .chip.ok{background:#e9f5ee;border-color:#9fcfb1;color:#1f5e37}
+.v10att .chip.busy{background:#fff7e0;border-color:#e6c76a;color:#7a5a00}
+.v10att .chip.err{background:#fdecea;border-color:#e3a39b;color:#9b2c20}
+.v10att .chip.off{background:#f4f4f4;border-style:dashed;color:#8a8f91}
+.drop.done{border-color:#7fbf96 !important;background:#f1f9f4 !important}
+.drop .v10done{margin-top:6px;color:#1f5e37;font-size:13px}
+.drop .v10done small{color:#5d7a68}
+@media print{.v10att{display:none}}
+@media (max-width:700px){.v10att{padding:8px 12px}.v10att .chip{max-width:100%}}
