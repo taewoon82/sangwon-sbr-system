@@ -37,9 +37,11 @@ function capExtra(wb){
   const tank = (rg,pfx) => { if(!rg) return; const s=spec(rg);
     out[pfx+"W"]=find(rg,/폭\s*\(W\)/,s); out[pfx+"L"]=find(rg,/길\s*이\s*\(L\)/,s); out[pfx+"He"]=find(rg,/유효\s*수심/,s); out[pfx+"N"]=find(rg,/▶\s*지\s*수/,s); };
   tank(range(/유량\s*조정조/),"eq");
+  { const eqR=range(/유량\s*조정조/); if(eqR){ out.eqT=find(eqR,/체류\s*시간\s*\(T\)/); out.eqVe=find(eqR,/▶\s*유효\s*용량/); } }
   const dec = range(/배출\s*장치/);
   tank(dec,"ef");
   out.decMin = find(dec,/배출\s*시간/);
+  { const vmRow=find(dec,/\(Vm\)|필요용량/); if(vmRow) out.efVm=vmRow; }
   out.decQ = find(dec,/설계\s*유입량\s*\(Q\)/);
   const q = find(dec,/QIN\s*=/); if(q) out.qin = {v:q.v<1? q.v*1000 : q.v, at:q.at};
   if(dec){ for(let i=dec[0];i<dec[1];i++){ const r=rows[i]||[]; if(!r.some(v=>v!=null&&/Decanter\s*설치|배출장치\s*설치/i.test(String(v)))) continue;
@@ -486,7 +488,7 @@ async function makeXlsx(){
     btn.disabled=true; note.textContent="검토서 만드는 중…";
     if(!window.JSZip){ await new Promise((ok,ng)=>{ const s=document.createElement("script"); s.src=CDN.jszip; s.onload=ok; s.onerror=()=>ng(new Error("JSZip 로드 실패 (인터넷 연결 확인)")); document.head.appendChild(s); }); }
     const rows=model(), X=V9.xls||{}, D=V9.dwg, s=V9.lv&&V9.lv.s, e=V9.lv&&V9.lv.e;
-    const c={}; const set=(a,v)=>{ if(v!=null&&v!==""&&!(typeof v==="number"&&!isFinite(v))) c[a]=v; };
+    const c={}; const set=(a,v)=>{ if(typeof v==="string" && /^\s*-?\d+(\.\d+)?\s*$/.test(v) && /^D/.test(a)) v=+v; if(v!=null&&v!==""&&!(typeof v==="number"&&!isFinite(v))) c[a]=v; };
     const r3=v=>v==null?null:Math.round(v*1000)/1000;
     const date=$("printDate").value||new Date().toISOString().slice(0,10);
     set("C3",$("siteName").value.trim()||X.site); set("C4",$("v9designer").value.trim());
@@ -575,8 +577,11 @@ async function makeXlsx(){
     // 설계 Check List 프로젝트명
     const proj = $("siteName").value.trim()||X.site||"";
     const cells={"검토서":c}; if(proj){ for(const sh of ["기술제안서","설계","시공","시운전"]) cells[sh]={A3:"프로젝트 명 : "+proj}; }
+    // 판정·검토의견 채우기 → 양식 수식 계산값 (미리보기·뷰어에서도 보이게)
+    try{ reviewJudge(c, {rows, X, SP:V9.spec, D, designKW:designKW()}); }catch(e){ console.warn("판정 작성 오류", e); }
+    let cache={}; try{ cache={"검토서": tplEval(c)}; }catch(e){ console.warn("수식 계산 오류", e); }
     const tpl=Uint8Array.from(atob(TPL_B64),ch=>ch.charCodeAt(0));
-    const out=await xlsxFill(window.JSZip, tpl, cells);
+    const out=await xlsxFill(window.JSZip, tpl, cells, cache);
     const blob=new Blob([out],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
     const saved=await saveFile(blob, `설계성과품 검토서_${(proj||"현장").replace(/[\\/:*?"<>|]/g,"")}_${date.replace(/-/g,"")}.xlsx`);
     if(saved===false){ note.innerHTML=`<span class="miss">저장을 취소했습니다. 다시 누르면 저장 창이 뜹니다.</span>`; return; }

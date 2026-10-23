@@ -1,7 +1,22 @@
 import base64
 v8=open('v8.html',encoding='utf-8').read()
-tpl=base64.b64encode(open('/home/claude/cl/out/Project 체크리스트_정리본.xlsx','rb').read()).decode()
-js=open('dwgx.js',encoding='utf-8').read()+"\n"+open('spec.js',encoding='utf-8').read()+"\n"+open('ingest.js',encoding='utf-8').read()+"\n"+open('ocr.js',encoding='utf-8').read()+"\n"+open('xfill.js',encoding='utf-8').read()+"\n"+open('v9.js',encoding='utf-8').read().replace("__TPL_B64__",tpl)
+import zipfile, io, re
+def patch_tpl(src):
+    zi=zipfile.ZipFile(src); bo=io.BytesIO(); zo=zipfile.ZipFile(bo,'w',zipfile.ZIP_DEFLATED)
+    for it in zi.infolist():
+        d=zi.read(it.filename)
+        if it.filename=='xl/worksheets/sheet2.xml':
+            s=d.decode('utf-8')
+            # 요약: 점검 항목(K=1)만 집계
+            for w in ('확인','검토','부적합'):
+                s=s.replace(f'COUNTIF($F$1:$F$105,&quot;{w}&quot;)', f'COUNTIFS($K$1:$K$105,1,$F$1:$F$105,&quot;{w}&quot;)')
+            # 지적사항 문구: 숫자는 소수 둘째 자리까지
+            s=re.sub(r'(?<![A-Z$])D(\d+)&amp;IF\(ISNUMBER\(D\1\)', lambda m: f'IF(ISNUMBER(D{m[1]}),ROUND(D{m[1]},2),D{m[1]})&amp;IF(ISNUMBER(D{m[1]})', s)
+            d=s.encode('utf-8')
+        zo.writestr(it, d)
+    zo.close(); return bo.getvalue()
+tpl=base64.b64encode(patch_tpl('/home/claude/cl/out/Project 체크리스트_정리본.xlsx')).decode()
+js=open('dwgx.js',encoding='utf-8').read()+"\n"+open('spec.js',encoding='utf-8').read()+"\n"+open('ingest.js',encoding='utf-8').read()+"\n"+open('ocr.js',encoding='utf-8').read()+"\n"+open('review.js',encoding='utf-8').read().replace('__TPL_META__',open('tpl_meta.json',encoding='utf-8').read())+"\n"+open('xfill.js',encoding='utf-8').read()+"\n"+open('v9.js',encoding='utf-8').read().replace("__TPL_B64__",tpl)
 css=open('v9.css',encoding='utf-8').read(); sec=open('v9_section.html',encoding='utf-8').read()
 i=v8.find('</head>'); assert i>0
 out=v8[:i]+"<style>\n"+css+"</style>\n"+'<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js"}}</script>\n'+v8[i:]

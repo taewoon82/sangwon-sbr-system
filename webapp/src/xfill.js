@@ -1,17 +1,19 @@
 // ===== 검토서 양식(xlsx) 셀 채우기 — 원본 XML 직접 수정 (서식·수식·목록·조건부서식 보존) =====
 // cells: {"검토서": {"D12": 843.4, "C3": "현장명", ...}, ...}
-async function xlsxFill(JSZip, tplBytes, cells){
+async function xlsxFill(JSZip, tplBytes, cells, cache){ cache=cache||{};
   const zip = await JSZip.loadAsync(tplBytes);
   const wbXml = await zip.file("xl/workbook.xml").async("string");
   const rels = await zip.file("xl/_rels/workbook.xml.rels").async("string");
   const esc = s => String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
   const colNum = c => c.split("").reduce((a,ch)=>a*26+ch.charCodeAt(0)-64,0);
   const split = a => { const m=a.match(/^([A-Z]+)(\d+)$/); return {c:m[1], r:+m[2]}; };
+  const SHEET_PATHS={};
+  for(const sn of Object.keys(cache)) if(!(sn in cells)) cells[sn]={};
   for(const sheetName in cells){
     const sm = wbXml.match(new RegExp(`<sheet[^>]*name="${sheetName}"[^>]*r:id="([^"]+)"`)) || wbXml.match(new RegExp(`<sheet[^>]*r:id="([^"]+)"[^>]*name="${sheetName}"`));
     if(!sm) throw new Error("시트 없음: "+sheetName);
     const tm = rels.match(new RegExp(`<Relationship[^>]*Id="${sm[1]}"[^>]*Target="([^"]+)"`)) || rels.match(new RegExp(`<Relationship[^>]*Target="([^"]+)"[^>]*Id="${sm[1]}"`));
-    const path = "xl/" + tm[1].replace(/^\/?xl\//,"");
+    const path = "xl/" + tm[1].replace(/^\/?xl\//,""); SHEET_PATHS[sheetName]=path;
     let xml = await zip.file(path).async("string");
     for(const addr in cells[sheetName]){
       const v = cells[sheetName][addr];
@@ -44,6 +46,12 @@ async function xlsxFill(JSZip, tplBytes, cells){
   for(const f of Object.keys(zip.files).filter(n=>/^xl\/worksheets\/sheet\d+\.xml$/.test(n))){
     let x = await zip.file(f).async("string");
     x = x.replace(/<c ([^>]*?)>(<f[^>]*?(?:\/>|>[\s\S]*?<\/f>))<v>[\s\S]*?<\/v><\/c>/g, (m,a,fm)=>`<c ${a.replace(/\s+t="(str|b|e|n)"/,"")}>${fm}</c>`);
+    // 우리가 계산한 수식 결과를 저장값으로 넣음 (수식은 그대로 — 엑셀은 열 때 다시 계산)
+    const sheetOf = Object.entries(SHEET_PATHS).find(([n,p])=>p===f);
+    const cv = sheetOf && cache[sheetOf[0]];
+    if(cv) x = x.replace(/<c r="([A-Z]+\d+)"([^>]*?)>(<f[^>]*?(?:\/>|>[\s\S]*?<\/f>))<\/c>/g, (m,addr,a,fm)=>{ if(!(addr in cv)) return m; const v=cv[addr];
+      const at=a.replace(/\s+t="[^"]*"/,""); if(typeof v==="number"&&isFinite(v)) return `<c r="${addr}"${at}>${fm}<v>${v}</v></c>`;
+      return `<c r="${addr}"${at} t="str">${fm}<v>${esc(v??"")}</v></c>`; });
     zip.file(f, x);
   }
   // 열 때 전체 재계산 + 저장된 계산값 체인 제거
