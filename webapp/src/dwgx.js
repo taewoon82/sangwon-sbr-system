@@ -38,7 +38,7 @@ function dwgExtract(entities, blockRecords){
     if(e.type==="INSERT"&&e.insertionPoint){ INS.push({name:e.name||"",layer:e.layer,x:e.insertionPoint.x,y:e.insertionPoint.y,rot:e.rotation||0}); continue; }
     if(e.type==="LWPOLYLINE"&&COLL.test(e.layer||"")&&e.vertices&&(e.vertices.length===4||e.vertices.length===5)){ sq(e.vertices,e.layer); continue; }
     if(e.type==="HATCH"&&COLL.test(e.layer||"")&&e.boundaryPaths){ for(const bp of e.boundaryPaths){ const pts=(bp.vertices&&bp.vertices.length?bp.vertices:(bp.edges||[]).flatMap(ed=>[ed.start,ed.end].filter(Boolean))); sq(pts,e.layer); } continue; }
-    if(e.type==="TEXT"||e.type==="MTEXT"){ const p=e.startPoint||e.insertionPoint; const s=clean(e.text||e.contents); if(p&&s) T.push({s,x:p.x,y:p.y,layer:e.layer,h:e.textHeight||0}); }
+    if(e.type==="TEXT"||e.type==="MTEXT"){ const p=e.startPoint||e.insertionPoint; const s=clean(e.text||e.contents); if(p&&s){ const an=(e.type==="TEXT"&&e.halign&&e.endPoint)?e.endPoint:p; T.push({s,x:p.x,y:p.y,ax:an.x,layer:e.layer,h:e.textHeight||0}); } }
     else if(e.type==="DIMENSION"){ const p=e.textPoint||e.definitionPoint; if(p&&isFinite(e.measurement)) D.push({m:e.measurement,x:p.x,y:p.y,p1:e.subDefinitionPoint1,p2:e.subDefinitionPoint2,layer:e.layer,txt:clean(e.text)}); }
   }
   // 도면 단위 축척: 선형 치수의 (정의점 거리 / 측정값) 중앙값 → 1이면 1:1 mm
@@ -117,6 +117,26 @@ function dwgExtract(entities, blockRecords){
       if(svcRe){ const np=pipes.filter(p=>svcRe.test(p.svc)&&dist(p,tg)<6000*unit).sort((a,b)=>dist(a,tg)-dist(b,tg))[0]; if(np){ const kk=np.a+"A-"+np.svc; o.pv[kk]=(o.pv[kk]||0)+1; } } }
     for(const o of Object.values(by)){ const top=Object.entries(o.pv).sort((a,b)=>b[1]-a[1])[0]; if(top&&top[1]>=2){ o.pipe={a:parseInt(top[0]),label:top[0],n:top[1]}; } delete o.pv; }
     const arr=Object.values(by).sort((a,b)=>a.d-b.d||b.n-a.n); return arr[0]? {...arr[0], others:arr.slice(1).filter(o=>o.d<Math.max(arr[0].d*3,15000*unit)).slice(0,3).map(o=>o.code)} : null; };
+  // 기기목록표 / 장비 일람표 (도면 안의 표): 기기번호 · 명칭 · 단계별 수량(예비)
+  const equipTable=(()=>{ const out={}; const heads=T.filter(t=>/^(기기|장비)\s*(목록표|일람표|목록)$/.test(t.s.replace(/\s+/g," ").trim()));
+    for(const hd of heads){
+      const near=T.filter(t=>t.y<hd.y+200 && t.y>hd.y-4000*unit && t.x>hd.x-3000*unit && t.x<hd.x+30000*unit);
+      const nameH=near.find(t=>/^기기\s*명칭|^장비\s*명|^기기명|^품\s*명/.test(t.s)), tagH=near.find(t=>/^기기\s*번호|^장비\s*번호|^TAG/i.test(t.s));
+      if(!nameH||!tagH) continue;
+      const stg=near.filter(t=>/^단\s*계$/.test(t.s)).map(t=>({ax:t.ax, n:+((near.find(o=>/^\d$/.test(o.s)&&Math.abs(o.ax-t.ax)<300*unit&&o.y>t.y)||{}).s)||0})).filter(o=>o.n).sort((a,b)=>a.n-b.n);
+      const qtyH=near.find(t=>/^수\s*량/.test(t.s));
+      const cols=stg.length?stg:(qtyH?[{ax:qtyH.ax,n:1}]:[]);
+      const y0=Math.min(nameH.y,tagH.y,...near.filter(t=>/^단\s*계$/.test(t.s)).map(t=>t.y))-400*unit;
+      const body=T.filter(t=>t.y<y0 && t.y>y0-60000*unit && t.x>hd.x-3000*unit && t.x<hd.x+30000*unit).sort((a,b)=>b.y-a.y);
+      const rows=[]; for(const t of body){ const r=rows.find(r=>Math.abs(r.y-t.y)<350*unit); if(r) r.items.push(t); else rows.push({y:t.y,items:[t]}); }
+      rows.sort((a,b)=>b.y-a.y); let lastY=null;
+      for(const r of rows){ if(lastY!=null && lastY-r.y>2500*unit) break; lastY=r.y;
+        const tg=r.items.find(t=>CODE.test(t.s)); if(!tg) continue; const code=tg.s.match(CODE)[1];
+        const nm=r.items.filter(t=>/[가-힣]/.test(t.s) && Math.abs(t.ax-nameH.ax)<Math.abs(t.ax-tagH.ax)+6000*unit && t!==tg).map(t=>t.s).join(" ");
+        const qty={}; for(const c of cols){ const q=r.items.find(t=>Math.abs(t.ax-c.ax)<500*unit && /^(\d+(\(\d+\))?|-)$/.test(t.s)); if(q) qty[c.n]=q.s; }
+        if(!out[code]) out[code]={code,name:nm.replace(/\s+/g,""),qty,stages:cols.length}; } }
+    return Object.values(out); })();
+  const eqOf=re=>equipTable.find(e=>re.test(e.name));
   const pumps={
     feed: pumpOf(/^(유량조정조(공급|이송)?|공급|SBR공급|반응조공급|원수공급)펌프$/, eqLabs.length?eqLabs:sbrLabs, /^(WW|SW|RW|IW|RAW|IN)/),
     eff:  pumpOf(/^(처리수(이송|공급)?|총인(설비|처리|처리설비)?공급|처리수조이송)펌프$/, efLabs.length?efLabs:sbrLabs, /^(TW|EW|OW|PW)/)
@@ -131,7 +151,8 @@ function dwgExtract(entities, blockRecords){
   const decPts=DECP.filter(p=>near20(p)).slice(0,4000);
   const seen=new Set(); const cols=SQ.filter(c=>near20(c)).filter(c=>{ const k=Math.round(c.x/50)+","+Math.round(c.y/50); if(seen.has(k)) return false; seen.add(k); return true; });
   return {unit, nText:T.length, nDim:D.length, sbr, eq, ef, equipment:eqList, blocks, cols, cir, decPts,
-    pumps, decPipe,
+    pumps, decPipe, equipTable,
+    eqAer:eqOf(/포기장치|표면포기/), eqDec:eqOf(/배출장치|디캔터/), eqFeed:eqOf(/반응조\s*공급펌프|유량조정조(공급|이송)?펌프|^공급펌프/), eqEff:eqOf(/처리수(이송)?펌프|총인\S*공급펌프/), eqWas:eqOf(/잉여슬러지/),
     hoist:has(/호이스트/), aerator:has(/포기장치/), decanter:has(/배출장치/), pump:has(/공급\s*펌프/),
     bops: levels.filter(t=>t.bop!=null).map(t=>({v:t.bop, s:t.s}))};
 }
