@@ -8,3 +8,6 @@ cfd/*.log
 cfd/post*.json
 cfd/viewer_data.json
 __pycache__/
+desktop/node_modules/
+desktop/dist/
+desktop/app/
