@@ -12,7 +12,7 @@ for k, lab in ORDER:
 P = json.load(open('q_n70.json'))
 first = next(iter(cases.values()))
 geo = {k: P[k] for k in ("W","L","H","haunch","cross_w","cross_h","cross_t","turb_x","turb_y","turb_R","turb_depth","band")}
-geo["obst"] = P["obst"]
+geo["obst"] = P["obst"]; geo["mesh"] = json.load(open("/home/claude/fab/jh_mesh.json")); geo["decAngle"] = P["decanter_angle_deg"]
 geo.update(site_short="장흥 SBR #1",
   title="양주 장흥 · SBR #1 · 포기장치 Ø1250 · 잠긴 구조물 반영 바닥 정체구역 (46~95 rpm)",
   tag="HWL 3.5 m · 10.5×10.5 m · 기둥 4 · 플로트 3 · 가이드레일 2 · 배출장치(들어올림) · 정상상태 RANS(realizable k-ε)",

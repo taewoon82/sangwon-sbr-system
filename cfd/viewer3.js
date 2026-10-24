@@ -38,17 +38,29 @@ const wl=new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints([[0,0],[W,0
 scene.add(wl);
 // 포기장치 (터빈 몸체 + 토출 띠 + 플로트 개략)
 const gA=new THREE.Group(); scene.add(gA);
-// 잠긴 구조물 (기둥·가이드레일·플로트·배출장치) — 해석에 넣은 형상 그대로
-if(G.obst){ const OC={columns:0xb9bec4,rails:0x8a949e,floats:0xe3e6e8,decanter:0xc9a24a};
+// 포기장치·배출장치·기둥 — 제작도 기준 3D 형상(형상확인_장흥과 같은 메시, mm → m). 해석에는 같은 위치의 단순 형상을 넣음
+const MESH=G.mesh||null;
+function mgeo(d){ const p=b64(d.p,Float32Array), ix=b64(d.i,Uint32Array); const g=new THREE.BufferGeometry(); const q=new Float32Array(p.length); for(let k=0;k<p.length;k++) q[k]=p[k]/1000;
+  g.setAttribute('position',new THREE.BufferAttribute(q,3)); g.setIndex(new THREE.BufferAttribute(ix,1)); g.computeVertexNormals(); return g; }
+const mcol=c=>new THREE.Color(c[0],c[1],c[2]);
+if(MESH){
+  for(const [k,d] of Object.entries(MESH.static)){ if(['STRUCTURE','HAUNCH','CROSS'].includes(k)) continue;
+    const m=new THREE.Mesh(mgeo(d),mat(mcol(MESH.colors[k]||[.72,.72,.7]),1,true)); (k==='COLUMN'?gS:gA).add(m); }
+  const piv=new THREE.Group(); piv.position.set(0,MESH.pivot[0]/1000,MESH.pivot[1]/1000); piv.rotation.x=-(G.decAngle||0)*Math.PI/180; gA.add(piv);
+  for(const [k,d] of Object.entries(MESH.rot)){ const g=mgeo(d); g.translate(0,-MESH.pivot[0]/1000,-MESH.pivot[1]/1000); piv.add(new THREE.Mesh(g,mat(mcol(MESH.colors[k]||[.8,.8,.8]),k==='AIR_SHIELD'?0.45:1,true))); }
+  const AE=MESH.aer; const dz=(H*1000-AE.base_water)/1000;
+  for(const [k,d] of Object.entries(AE.float)){ const m=new THREE.Mesh(mgeo(d),mat(mcol(AE.colors[k]||[.7,.7,.7]),1,true)); m.position.z=dz; gA.add(m); }
+  for(const [k,d] of Object.entries(AE.fixed)) gA.add(new THREE.Mesh(mgeo(d),mat(mcol(AE.colors[k]||[.6,.6,.6]),1,true)));
+} else if(G.obst){ const OC={columns:0xb9bec4,rails:0x8a949e,floats:0xe3e6e8,decanter:0xc9a24a};
   for(const [g,items] of Object.entries(G.obst)){ const m=mat(OC[g]||0xaaaaaa,1,false);
     for(const it of items){
       if(it.t==="box"){ const a=it.min,b=it.max; const z0=Math.max(a[2],0), z1=Math.min(b[2],H+0.3); const o=new THREE.Mesh(new THREE.BoxGeometry(Math.min(b[0],W)-Math.max(a[0],0),Math.min(b[1],L)-Math.max(a[1],0),z1-z0),m); o.position.set((Math.min(b[0],W)+Math.max(a[0],0))/2,(Math.min(b[1],L)+Math.max(a[1],0))/2,(z0+z1)/2); gA.add(o); }
       else { const p0=new THREE.Vector3(...it.p0), p1=new THREE.Vector3(...it.p1); if(p0.z<0)p0.z=0; const len=p0.distanceTo(p1);
         const o=new THREE.Mesh(new THREE.CylinderGeometry(it.r,it.r,len,24),m); o.position.copy(p0).add(p1).multiplyScalar(0.5);
         o.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0), p1.clone().sub(p0).normalize()); gA.add(o); } } } }
-const tb=new THREE.Mesh(new THREE.CylinderGeometry(G.turb_R,G.turb_R*0.55,G.turb_depth,48),mat(0x2f6f9f,1,false)); tb.rotation.x=Math.PI/2; tb.position.set(G.turb_x,G.turb_y,H-G.turb_depth/2); gA.add(tb);
+const tb=new THREE.Mesh(new THREE.CylinderGeometry(G.turb_R,G.turb_R*0.55,G.turb_depth,48),mat(0x2f6f9f,1,false)); tb.rotation.x=Math.PI/2; tb.position.set(G.turb_x,G.turb_y,H-G.turb_depth/2); if(!MESH) gA.add(tb);
 const band=new THREE.Mesh(new THREE.CylinderGeometry(G.turb_R+0.01,G.turb_R+0.01,G.band,48,1,true),new THREE.MeshBasicMaterial({color:0xeb6834,transparent:true,opacity:.55,side:THREE.DoubleSide})); band.rotation.x=Math.PI/2; band.position.set(G.turb_x,G.turb_y,H-G.band/2); gA.add(band);
-const mot=new THREE.Mesh(new THREE.CylinderGeometry(0.2,0.2,0.6,24),mat(0x3b6e4f,1,false)); mot.rotation.x=Math.PI/2; mot.position.set(G.turb_x,G.turb_y,H+0.45); gA.add(mot);
+const mot=new THREE.Mesh(new THREE.CylinderGeometry(0.2,0.2,0.6,24),mat(0x3b6e4f,1,false)); mot.rotation.x=Math.PI/2; mot.position.set(G.turb_x,G.turb_y,H+0.45); if(!MESH) gA.add(mot);
 if(!G.obst)for(let j=0;j<3;j++){const a=Math.PI/2+j*2*Math.PI/3, r=1.25*(G.turb_R/0.675); const f=new THREE.Mesh(new THREE.CylinderGeometry(0.22,0.22,1.3,20),mat(0xe3e6e8,1,false)); f.position.set(G.turb_x+r*Math.cos(a),G.turb_y+r*Math.sin(a),H+0.04); f.rotation.z=a; gA.add(f)}
 // 회전 방향 표시
 {const pts=[];for(let i=0;i<=40;i++){const a=i/40*Math.PI*1.5;pts.push(new THREE.Vector3(G.turb_x+(G.turb_R+0.35)*Math.cos(a),G.turb_y+(G.turb_R+0.35)*Math.sin(a),H+0.05))}
