@@ -254,6 +254,7 @@ function updAtt(){
   if(ATT.specBusy) set("attSpec", false, "📑 시방서·장비일람표", "읽는 중…", "busy");
   else if(ATT.specErr) set("attSpec", false, "📑 시방서·장비일람표", "읽기 실패", "err");
   else set("attSpec", !!V9.spec, "📑 시방서·장비일람표", V9.spec? `✓ ${h(V9.specName)} <small>기기 ${V9.spec.items.length}개</small>${rs}` : "미첨부");
+  { const en=V9.elecNames||[]; set("attElec", en.length>0, "⚡ 전기·계측 도면", en.length? `✓ ${h(en.length>1?`${en[0]} 외 ${en.length-1}개`:en[0])}` : "미첨부"); }
   const mark=(id,name)=>{ const e=$(id); if(!e) return; let s=e.querySelector(".v10done"); if(!name){ e.classList.remove("done"); if(s) s.remove(); return; } e.classList.add("done"); if(!s){ s=document.createElement("div"); s.className="v10done"; e.appendChild(s); } s.innerHTML=`✓ 첨부됨: <b>${h(name)}</b> <small>(다른 파일을 올리면 바꿉니다)</small>`; };
   mark("drop", xn); mark("v9drop", D&&!ATT.dwgBusy? V9.dwgName : ""); mark("v11drop", V9.spec&&!ATT.specBusy? V9.specName : "");
 }
@@ -601,8 +602,9 @@ async function makeXlsx(){
 (function initV9(){
   const f=$("v9file");
   $("v9drop").addEventListener("click",()=>f.click());
-  f.setAttribute("multiple",""); f.setAttribute("accept",".dwg,.dxf,.pdf,.zip,.rar,.7z,.egg,.alz,.tar,.gz");
-  f.addEventListener("change",()=>{ if(f.files.length) ingestFiles(f.files,"dwg"); f.value=""; });
+  f.setAttribute("multiple",""); f.setAttribute("accept",".xls,.xlsx,.xlsm,.dwg,.dxf,.pdf,.zip,.rar,.7z,.egg,.alz,.tar,.gz");
+  f.addEventListener("change",()=>{ if(f.files.length) ingestFiles(f.files,"all"); f.value=""; });
+  { const tb=$("pdfBtn"); if(tb){ tb.textContent="📂 자료 불러오기"; tb.title="용량계산서·설계도면·시방서·전기계측 도면·압축파일을 한꺼번에 선택"; const nb=tb.cloneNode(true); tb.replaceWith(nb); nb.addEventListener("click",()=>f.click()); } }
   const sf=$("v11file"); sf.setAttribute("multiple",""); sf.setAttribute("accept",".pdf,application/pdf,.zip,.rar,.7z,.egg,.alz");
   $("v11drop").addEventListener("click",()=>sf.click()); sf.addEventListener("change",()=>{ if(!sf.files.length) return; const L=[...sf.files]; (L.length===1&&/\.pdf$/i.test(L[0].name))? loadSpec(L[0]) : ingestFiles(L,"spec"); sf.value=""; });
   $("attSpec").style.cursor="pointer"; $("attSpec").addEventListener("click",()=>sf.click());
@@ -640,6 +642,6 @@ async function makeXlsx(){
   { const b=$("resetAllBtn"); if(b) b.addEventListener("click",()=>setTimeout(()=>{ if(b.classList.contains("arm")) return;
       V9.xls=null; V9.xlsName=""; V9.dwg=null; V9.dwgName=""; V9.spec=null; V9.specName=""; V9.over={}; V9.pick={}; ATT.restored=false; ATT.dwgErr=""; ATT.specErr="";
       try{ if(typeof state!=="undefined"){ state.pdfName=null; } localStorage.removeItem(V9KEY); }catch(e){}
-      $("v9stat").innerHTML="① 위에서 용량계산서 엑셀을 불러오고 ② 설계도면 DWG ③ 시방서 PDF를 불러오면, 자료를 대조해 검토서 엑셀을 만듭니다."; renderCmp9(); },0)); }
+      $("v9stat").innerHTML="위 칸에 용량계산서·설계도면·시방서·전기계측 도면을 넣으면(한꺼번에 넣어도 됨) 자료를 대조해 검토서 엑셀을 만듭니다."; renderCmp9(); },0)); }
   renderCmp9();
 })();

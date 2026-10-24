@@ -12,7 +12,22 @@ def patch_tpl(src):
                 s=s.replace(f'COUNTIF($F$1:$F$105,&quot;{w}&quot;)', f'COUNTIFS($K$1:$K$105,1,$F$1:$F$105,&quot;{w}&quot;)')
             # 지적사항 문구: 숫자는 소수 둘째 자리까지
             s=re.sub(r'(?<![A-Z$])D(\d+)&amp;IF\(ISNUMBER\(D\1\)', lambda m: f'IF(ISNUMBER(D{m[1]}),ROUND(D{m[1]},2),D{m[1]})&amp;IF(ISNUMBER(D{m[1]})', s)
+            # 판정 칸 서식 통일: 기본 데이터 행(회색 20/21)도 판정을 쓰므로 점검 항목 행과 같은 노란 입력 서식(F 28, G·H 12)으로
+            def restyle(m):
+                r=int(m.group(2))
+                if 11<=r<=105: return m.group(0).replace(f'r="{m.group(1)}{r}" s="20"', f'r="{m.group(1)}{r}" s="{28 if m.group(1)=="F" else 12}"').replace(f'r="{m.group(1)}{r}" s="21"', f'r="{m.group(1)}{r}" s="12"')
+                return m.group(0)
+            s=re.sub(r'<c r="([FGH])(\d+)" s="2[01]"', restyle, s)
+            # 판정 색 (조건부 서식·목록)을 F11:F105 전체로, 확인 = 초록 추가
+            s=re.sub(r'(<conditionalFormatting sqref=")F27:F28[^"]*(">)', r'\1F11:F105\2', s)
+            s=s.replace('<formula>F27=&quot;부적합&quot;</formula>','<formula>F11=&quot;부적합&quot;</formula>').replace('<formula>F27=&quot;검토&quot;</formula>','<formula>F11=&quot;검토&quot;</formula>')
+            s=s.replace('<formula>F11=&quot;검토&quot;</formula></cfRule>','<formula>F11=&quot;검토&quot;</formula></cfRule><cfRule type="expression" priority="5" dxfId="3"><formula>F11=&quot;확인&quot;</formula></cfRule>',1)
+            s=re.sub(r'(<dataValidation [^>]*sqref=")F27:F28[^"]*(")', r'\1F11:F105\2', s)
             d=s.encode('utf-8')
+        if it.filename=='xl/styles.xml':
+            st=d.decode('utf-8')
+            st=st.replace('<dxfs count="3">','<dxfs count="4">').replace('</dxfs>','<dxf><font><b val="1"/><color rgb="FF006100"/></font><fill><patternFill><bgColor rgb="FFC6EFCE"/></patternFill></fill></dxf></dxfs>',1)
+            d=st.encode('utf-8')
         zo.writestr(it, d)
     zo.close(); return bo.getvalue()
 tpl=base64.b64encode(patch_tpl('/home/claude/cl/out/Project 체크리스트_정리본.xlsx')).decode()
@@ -22,7 +37,7 @@ i=v8.find('</head>'); assert i>0
 out=v8[:i]+"<style>\n"+css+"</style>\n"+'<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js"}}</script>\n'+v8[i:]
 j=out.find('<script>\n// ===== 카탈로그'); assert j>0
 out=out[:j]+sec+"\n"+out[j:]
-ATT='<div id="v10att" class="v10att noprint"><span class="t">첨부 자료</span><span class="chip no" id="attXls">📄 용량계산서 <b>미첨부</b></span><span class="chip no" id="attDwg">📐 설계도면 <b>미첨부</b></span><span class="chip no" id="attSpec" title="눌러서 시방서 PDF 선택">📑 시방서·장비일람표 <b>미첨부</b></span></div>'
+ATT='<div id="v10att" class="v10att noprint"><span class="t">첨부 자료</span><span class="chip no" id="attXls">📄 용량계산서 <b>미첨부</b></span><span class="chip no" id="attDwg">📐 설계도면 <b>미첨부</b></span><span class="chip no" id="attSpec" title="눌러서 시방서 PDF 선택">📑 시방서·장비일람표 <b>미첨부</b></span><span class="chip no" id="attElec">⚡ 전기·계측 도면 <b>미첨부</b></span></div>'
 pt='<div id="printTitle" class="print-only-title"></div>'; assert pt in out; out=out.replace(pt, ATT+'\n'+pt,1)
 k=out.rfind('</body>')
 out=out[:k]+'<script type="module">\n'+js+'\n</script>\n'+out[k:]
@@ -32,7 +47,7 @@ assert anchor in out, 'COR anchor'
 out=out.replace(anchor, anchor+'\n  if(R.glob.delta==null && R.ref.COR && R.ref.SOR && R.glob.ta){ const d=R.ref.COR[0]*R.glob.ta/R.ref.SOR[0]; if(isFinite(d)&&d>0.8&&d<1.6){ R.glob.delta=Math.round(d*100)/100; R.src.delta=R.src.ta; R.deltaInferred=true; } }')
 out=out.replace('<title>물질수지·터빈 선정 (PDF 자동입력)</title>','<title>물질수지·터빈 선정 v12 (도면·시방서 대조·검토서)</title>')
 out=out.replace('>SBR 반응조 물질수지 · 표면포기기 터빈 선정</h1>','>SBR 반응조 물질수지 · 표면포기기 터빈 선정 <small style="font-size:.55em;opacity:.7">v12 · 도면·시방서·압축파일 대조·검토서</small></h1>')
-APP_VER='12.3.0'
+APP_VER='12.3.1'
 out=out.replace('v12 · 도면·시방서·압축파일 대조·검토서</small></h1>','v'+APP_VER+' · 도면·시방서·압축파일 대조·검토서</small></h1>')
 PRINTFIX = """<style>
 @media print{

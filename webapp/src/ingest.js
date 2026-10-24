@@ -80,13 +80,13 @@ async function ingestFiles(list, hint){
         else p.skip="시방서 항목(포기·폭기장치·배출장치·공법제어반)을 찾지 못함"; }catch(e){ p.skip="PDF를 읽지 못함"; } }
     const summary=[];
     if(cap||capPdf){ const c=cap||capPdf; st.innerHTML=`<b>${h(c.name)}</b> — 용량계산서 읽는 중…`; await tick(); await window.importPdf(c.file); summary.push(`용량계산서 <b>${h(c.name)}</b>`); }
-    if(dwg.length||drawPdfs.length){ await loadDwgs(dwg.map(d=>d.file), drawPdfs.map(d=>d.file)); const n=(V9.dwgNames||[]).length; summary.push(`설계도면 ${n}장${V9.dwgBad&&V9.dwgBad.length?` <span class="miss">(못 읽음: ${V9.dwgBad.map(h).join(" / ")})</span>`:""}${ATT.dwgErr?` <span class="miss">(${h(ATT.dwgErr)})</span>`:""}`); }
+    if(dwg.length||drawPdfs.length){ await loadDwgs(dwg.map(d=>d.file), drawPdfs.map(d=>d.file)); const n=(V9.dwgNames||[]).length; if(n||V9.dwgBad&&V9.dwgBad.length||ATT.dwgErr) summary.push(`설계도면 ${n}장${V9.dwgBad&&V9.dwgBad.length?` <span class="miss">(못 읽음: ${V9.dwgBad.map(h).join(" / ")})</span>`:""}${ATT.dwgErr?` <span class="miss">(${h(ATT.dwgErr)})</span>`:""}`); }
     if(elecPdfs.length){ V9.elecPdf=elecPdfs.flatMap(p=>p.pages.map((pg,k)=>({name:p.name, page:k+1, items:pg.items}))); V9.elecNames=[...new Set([...(V9.elecNames||[]), ...elecPdfs.map(p=>p.name)])]; }
     const specSrc=[...specPdfs, ...(V9.drawSpec?[V9.drawSpec]:[])];
     if(specSrc.length){ applySpecs(specSrc); if(specPdfs.length) summary.push(`시방서 ${specPdfs.length}개`); if(V9.drawSpec) summary.push(`도면 기기일람표 ${V9.drawSpec.R.items.length}개 기기`); }
     elRefresh(); if(V9.elecNames&&V9.elecNames.length) summary.push(`전기·계측 도면 ${V9.elecNames.length}개 (${h(elSummary(V9.elec))})`);
     const unused=[...xls.filter(x=>x!==cap).map(x=>x.name+" (엑셀 — 용량계산서 1개만 사용)"), ...pdf.filter(p=>p.skip&&p!==capPdf).map(p=>`${p.name} (${p.skip})`), ...other.map(o=>o.name)];
-    if(files.some(f=>ARCH_EXT.test(extOf(f.name)))||files.length>1){
+    {
       st.innerHTML=`자료 ${all.length}개를 확인했습니다${notes.length?` (${notes.join(" · ")})`:""}. 사용: ${summary.join(" · ")||"없음"}.`+
         (unused.length?`<br><small>사용 안 함 ${unused.length}개: ${unused.slice(0,12).map(h).join(", ")}${unused.length>12?" 외":""}</small>`:"");
     }
