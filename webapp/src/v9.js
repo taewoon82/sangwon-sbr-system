@@ -270,7 +270,7 @@ async function loadDwgs(files, pdfDraws){ pdfDraws=pdfDraws||[];
     sec.classList.add("v9-busy"); ATT.dwgBusy=true; ATT.dwgErr=""; ATT.restored=false; updAtt();
     st.innerHTML=`도면 ${files.length}장 — 도면 해석 모듈 준비 중… (처음 한 번 약 11MB 내려받음)`; await tick();
     if(files.length && !V9.mod) V9.mod = await import(CDN.dwg);
-    const all=[]; const ok=[], bad=[];
+    const all=[]; const ok=[], bad=[]; const elecD=[], elecN=[];
     for(let i=0;i<files.length;i++){ const file=files[i];
       st.innerHTML=`<b>${h(file.name)}</b> (${i+1}/${files.length}) — 도면 해석 중… (큰 도면은 10초 이상 걸릴 수 있습니다)`; await tick();
       try{
@@ -283,12 +283,15 @@ async function loadDwgs(files, pdfDraws){ pdfDraws=pdfDraws||[];
         if(!dwg) throw new Error("읽지 못함 — 오토캐드에서 DXF로 저장 후 다시");
         const db=lib.convert(dwg);
         const ents=dwgExpand(db.entities||[], (db.tables&&db.tables.BLOCK_RECORD&&db.tables.BLOCK_RECORD.entries)||[], 3);
+        { const ti=elTextItems(ents); const sc=elScore(ti.map(t=>t.s)); if(sc>=40 && sc>ti.length*0.02){ elecD.push({name:file.name, items:ti}); elecN.push(file.name); continue; } }   // 전기·계측 도면은 따로
         if(i>0){ const seen=new WeakSet(); for(const e of ents) shiftEnt(e, i*1e9, seen); }
         for(const e of ents) all.push(e);
         ok.push(file.name);
       }catch(e){ bad.push(`${file.name}: ${e.message||e}`); }
     }
     V9.dwgBad=bad;
+    if(elecD.length){ V9.elecDwg=elecD; V9.elecNames=[...new Set([...(V9.elecNames||[]), ...elecN])]; elRefresh(); }
+    if(!ok.length && elecD.length && !pdfDraws.length){ st.innerHTML=`전기·계측 도면 ${elecD.length}장을 읽었습니다 (${elecN.map(h).join(", ")}): ${h(elSummary(V9.elec))}`; renderCmp9(); return; }
     // 그림 글자 PDF 도면: 글자 인식으로 기기일람표·단면도 수위 읽기
     V9.drawSpec=null; let ocrNote=[];
     for(const pf of pdfDraws){
@@ -306,6 +309,7 @@ async function loadDwgs(files, pdfDraws){ pdfDraws=pdfDraws||[];
     R.ocrNote=ocrNote;
     if(V9.drawSpec){ const it=V9.drawSpec.R.items; R.pumps=R.pumps||{}; for(const t of ["feed","eff"]){ const e=it.find(x=>x.type===t); if(e) R.pumps[t]={code:e.tag, name:e.name, d:0, n:1, others:[], fromTable:true}; } }
     if(!R.sbr.labels && !V9.drawSpec && !pdfDraws.length) throw new Error(`도면 ${ok.length}장 어디에서도 ‘SBR 반응조’ 명칭을 찾지 못했습니다`);
+    if(elecD.length) R.ocrNote=[...(R.ocrNote||[]), `전기·계측 도면 ${elecD.length}장: ${elSummary(V9.elec)}`];
     V9.dwg=R; V9.dwgNames=ok; V9.dwgName=ok.length>1?`${ok[0]} 외 ${ok.length-1}장`:ok[0]; V9.pick={}; V9.over={}; ATT.dwgBusy=false;
     st.innerHTML=`설계도면 ${ok.length}장 해석 완료 (${ok.map(h).join(", ")}). 문자 ${R.nText.toLocaleString()}개 · 치수 ${R.nDim.toLocaleString()}개 · ‘SBR 반응조’ 명칭 ${R.sbr.labels}곳${R.equipTable&&R.equipTable.length?` · 기기목록표 ${R.equipTable.length}개 기기`:""}.${R.ocrNote&&R.ocrNote.length?`<br><small>글자 인식: ${R.ocrNote.map(h).join(" / ")} — 인식 결과는 대조표에서 꼭 확인하세요.</small>`:""}`+(bad.length?`<br><span class="miss">못 읽은 도면: ${bad.map(h).join(" / ")}</span>`:"");
     renderCmp9();
@@ -324,6 +328,8 @@ async function loadSpec(file){
     const lines=specLinesFromPages(pages);
     if(lines.length<5) throw new Error("글자를 읽지 못했습니다 — 스캔(이미지) PDF일 수 있습니다");
     const R=specParse(lines);
+    if(!R.items.length && elScore(lines.map(l=>l.s))>=20){ V9.elecPdf=[...(V9.elecPdf||[]).filter(x=>x.name!==file.name), ...pages.map((p,k)=>({name:file.name, page:k+1, items:p.items}))]; V9.elecNames=[...new Set([...(V9.elecNames||[]), file.name])]; elRefresh();
+      st.innerHTML=`<b>${h(file.name)}</b> — 전기·계측 도면 ${pages.length}쪽: ${h(elSummary(V9.elec))}`; renderCmp9(); return; }
     if(!R.items.length) throw new Error("‘2.1 포기장치(M-201)’처럼 기기번호가 붙은 항목 제목을 찾지 못했습니다");
     V9.spec=R; V9.specName=file.name;
     const f=e=>e?`${e.name} ${e.tag}${e.cap?` · ${e.cap.v.toLocaleString()} ${e.cap.unit}`:""}${e.kw?` · ${e.kw.v} kW`:""}${e.qty?` · 금회 ${e.qty}대${e.qtyAll?`/전체 ${e.qtyAll}대`:""}`:""}`:"";
@@ -578,6 +584,7 @@ async function makeXlsx(){
     const proj = $("siteName").value.trim()||X.site||"";
     const cells={"검토서":c}; if(proj){ for(const sh of ["기술제안서","설계","시공","시운전"]) cells[sh]={A3:"프로젝트 명 : "+proj}; }
     // 판정·검토의견 채우기 → 양식 수식 계산값 (미리보기·뷰어에서도 보이게)
+    try{ elRefresh(); elecFill(c, V9.elec); }catch(e){ console.warn("전기도면 반영 오류", e); }
     try{ reviewJudge(c, {rows, X, SP:V9.spec, D, designKW:designKW()}); }catch(e){ console.warn("판정 작성 오류", e); }
     let cache={}; try{ cache={"검토서": tplEval(c)}; }catch(e){ console.warn("수식 계산 오류", e); }
     const tpl=Uint8Array.from(atob(TPL_B64),ch=>ch.charCodeAt(0));
