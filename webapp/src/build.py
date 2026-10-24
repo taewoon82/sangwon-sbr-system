@@ -37,7 +37,7 @@ i=v8.find('</head>'); assert i>0
 out=v8[:i]+"<style>\n"+css+"</style>\n"+'<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js"}}</script>\n'+v8[i:]
 j=out.find('<script>\n// ===== 카탈로그'); assert j>0
 out=out[:j]+sec+"\n"+out[j:]
-ATT='<div id="v10att" class="v10att noprint"><span class="t">첨부 자료</span><span class="chip no" id="attXls">📄 용량계산서 <b>미첨부</b></span><span class="chip no" id="attDwg">📐 설계도면 <b>미첨부</b></span><span class="chip no" id="attSpec" title="눌러서 시방서 PDF 선택">📑 시방서·장비일람표 <b>미첨부</b></span><span class="chip no" id="attElec">⚡ 전기·계측 도면 <b>미첨부</b></span></div>'
+ATT='<div id="v10att" class="v10att noprint"><span class="t">첨부 자료</span><span class="chip no" id="attXls">📄 용량계산서 <b>미첨부</b></span><span class="chip no" id="attDwg">📐 설계도면 <b>미첨부</b></span><span class="chip no" id="attSpec" title="눌러서 시방서 PDF 선택">📑 시방서·승인도서 <b>미첨부</b></span><span class="chip no" id="attElec">⚡ 전기·계측 도면 <b>미첨부</b></span></div>'
 pt='<div id="printTitle" class="print-only-title"></div>'; assert pt in out; out=out.replace(pt, ATT+'\n'+pt,1)
 k=out.rfind('</body>')
 out=out[:k]+'<script type="module">\n'+js+'\n</script>\n'+out[k:]
@@ -47,7 +47,7 @@ assert anchor in out, 'COR anchor'
 out=out.replace(anchor, anchor+'\n  if(R.glob.delta==null && R.ref.COR && R.ref.SOR && R.glob.ta){ const d=R.ref.COR[0]*R.glob.ta/R.ref.SOR[0]; if(isFinite(d)&&d>0.8&&d<1.6){ R.glob.delta=Math.round(d*100)/100; R.src.delta=R.src.ta; R.deltaInferred=true; } }')
 out=out.replace('<title>물질수지·터빈 선정 (PDF 자동입력)</title>','<title>물질수지·터빈 선정 v12 (도면·시방서 대조·검토서)</title>')
 out=out.replace('>SBR 반응조 물질수지 · 표면포기기 터빈 선정</h1>','>SBR 반응조 물질수지 · 표면포기기 터빈 선정 <small style="font-size:.55em;opacity:.7">v12 · 도면·시방서·압축파일 대조·검토서</small></h1>')
-APP_VER='12.3.1'
+APP_VER='12.3.2'
 out=out.replace('v12 · 도면·시방서·압축파일 대조·검토서</small></h1>','v'+APP_VER+' · 도면·시방서·압축파일 대조·검토서</small></h1>')
 PRINTFIX = """<style>
 @media print{

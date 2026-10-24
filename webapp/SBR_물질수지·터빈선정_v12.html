@@ -236,7 +236,7 @@ button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 <header>
   <div class="hbar">
     <div class="hbar-title">
-      <h1 id="appTitle">SBR 반응조 물질수지 · 표면포기기 터빈 선정 <small style="font-size:.55em;opacity:.7">v12.3.1 · 도면·시방서·압축파일 대조·검토서</small></h1>
+      <h1 id="appTitle">SBR 반응조 물질수지 · 표면포기기 터빈 선정 <small style="font-size:.55em;opacity:.7">v12.3.2 · 도면·시방서·압축파일 대조·검토서</small></h1>
       <p>용량계산서 PDF를 불러오면 칸이 자동으로 채워집니다(초록 칸 = 계산서에서 읽는 항목). 밝은 노란 칸은 계산서에 없어 직접 입력합니다. 유입수질·반응조 조건 → 물질수지(SRT·슬러지·질산화·침전) → 필요산소량(AOR→SOR→COR) → 터빈 규격·동력·토크까지 이어서 계산합니다. COR을 용량계산서 값으로 직접 넣는 방식도 그대로 쓸 수 있습니다.</p>
     </div>
     <div class="hbar-meta">
@@ -249,7 +249,7 @@ button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
     </div>
   </div>
 </header>
-<div id="v10att" class="v10att noprint"><span class="t">첨부 자료</span><span class="chip no" id="attXls">📄 용량계산서 <b>미첨부</b></span><span class="chip no" id="attDwg">📐 설계도면 <b>미첨부</b></span><span class="chip no" id="attSpec" title="눌러서 시방서 PDF 선택">📑 시방서·장비일람표 <b>미첨부</b></span><span class="chip no" id="attElec">⚡ 전기·계측 도면 <b>미첨부</b></span></div>
+<div id="v10att" class="v10att noprint"><span class="t">첨부 자료</span><span class="chip no" id="attXls">📄 용량계산서 <b>미첨부</b></span><span class="chip no" id="attDwg">📐 설계도면 <b>미첨부</b></span><span class="chip no" id="attSpec" title="눌러서 시방서 PDF 선택">📑 시방서·승인도서 <b>미첨부</b></span><span class="chip no" id="attElec">⚡ 전기·계측 도면 <b>미첨부</b></span></div>
 <div id="printTitle" class="print-only-title"></div>
 
 <div class="wrap">
@@ -1638,6 +1638,43 @@ function specParse(lines){
 }
 if(typeof module!=="undefined") module.exports={specParse,specLinesFromPages};
 
+// ===== 승인도서: '공급기기 목록'·'DATA SHEET' 에서 공법 기자재 사양 읽기 (시방서 항목 제목이 없거나 값이 빠졌을 때 보충) =====
+const APPROVAL_RE=/제\s*작\s*승\s*인\s*도\s*서|공급\s*기기\s*목록|DATA\s*SHEET|설계\s*\/?\s*제작\s*시방서|승인\s*도서/i;
+function supplyParse(lines){
+  const num=s=>parseFloat(String(s).replace(/,/g,""));
+  const out={}; const mk=(t,name)=> out[t]=out[t]||{type:t, name, fromTable:true, src:"승인도서 공급기기 목록"};
+  const pg=(lines.find(l=>/공급\s*기기\s*목록/.test(l.s))||{}).page;
+  if(pg){ const L=lines.filter(l=>l.page===pg); const tagAt=i=>{ for(let d=0;d<=3;d++) for(const j of [i-d,i+d]){ const m=L[j]&&L[j].s.match(/\b(\d?M-\d{3})/); if(m) return m[1]; } return null; };
+    L.forEach((l,i)=>{ const s=l.s; let m;
+      if(/터빈|포기|폭기/.test(s) && (m=s.match(/([\d.]+)\s*kg\s*[·.\-]?\s*O\s*[2₂]/i))){ const e=mk("aer","포기장치"); e.cap={v:num(m[1]),unit:"kgO₂/h",raw:s.slice(0,60)}; const d=s.match(/[ØΦφ∅]\s*([\d,]+)\s*mm/); if(d) e.dia=num(d[1]); const q=s.match(/(\d+)\s*set/i); if(q) e.qty=+q[1]; e.tag=e.tag||tagAt(i); e.page=pg; }
+      if(/감속기|모터/.test(s) && !/윈치/.test(s) && (m=s.match(/([\d.]+)\s*kW/i))){ const e=mk("aer","포기장치"); e.kw={v:num(m[1]),label:"동력",raw:s.slice(0,60)}; e.page=pg; }
+      if(/디\s*[켄캔]\s*터|배출\s*장치|Decanter/i.test(s) && (m=s.match(/([\d.]+)\s*(?:L|ℓ)\s*\/\s*s(?:ec)?/i))){ const e=mk("dec","처리수배출장치"); e.cap={v:num(m[1]),unit:"L/s",raw:s.slice(0,60)}; const q=s.match(/(\d+)\s*set/i); if(q) e.qty=+q[1]; e.tag=e.tag||tagAt(i); e.page=pg; }
+      if(/윈치/.test(s) && (m=s.match(/([\d.]+)\s*kW/i))){ const e=mk("dec","처리수배출장치"); e.kw={v:num(m[1]),label:"동력",raw:s.slice(0,60)}; e.page=pg; }
+      if(/제어반|PLC|인버터/.test([L[i-1],l,L[i+1],L[i+2]].filter(Boolean).map(x=>x.s).join(" ")) && !/현장\s*조작|조작반/.test(s) && (m=s.match(/([\d.]+)\s*m?\s*W\s*[x×*]\s*([\d.]+)\s*m?\s*D\s*[x×*]\s*([\d.]+)\s*m?\s*H/i))){ const e=mk("panel","반응조 제어반"); const f=v=>{ v=num(v); return Math.round(v<10?v*1000:v); }; e.whd=`${f(m[1])} × ${f(m[2])} × ${f(m[3])}`; const q=s.match(/(\d+)\s*면/); if(q) e.qty=+q[1]; e.tag=e.tag||tagAt(i); e.page=pg; }
+    }); }
+  // DATA SHEET: 산소 전달량 · 적용 동력 · 운전 회전수
+  const ds=lines.filter(l=>/DATA\s*SHEET/i.test(l.s)).map(l=>l.page); const dsp=new Set(ds);
+  const DL=lines.filter(l=>dsp.has(l.page)); let m;
+  for(const l of DL){ const s=l.s;
+    if(/산소\s*전달량/.test(s) && (m=s.match(/([\d.]+)\s*kg\s*[·.\-]?\s*O\s*[2₂]/i))){ const e=mk("aer","포기장치"); if(!e.cap) e.cap={v:num(m[1]),unit:"kgO₂/h",raw:s.slice(0,60)}; }
+    if(/적용\s*동력|Shaft/i.test(s) && (m=s.match(/([\d.]+)\s*kW/i))){ const e=mk("aer","포기장치"); if(!e.kw) e.kw={v:num(m[1]),label:"동력",raw:s.slice(0,60)}; }
+    if(/운전\s*회전수/.test(s) && (m=s.match(/([\d.]+)\s*rpm/i))){ const e=mk("aer","포기장치"); e.rpm=e.rpm||num(m[1]); }
+  }
+  return Object.values(out);
+}
+// 시방서 파싱 + 승인도서 보충: 같은 종류 항목의 빈 값만 채움, 없는 종류는 새로 추가
+function specParseAll(lines){
+  const R=specParse(lines); const txt=lines.slice(0,600).map(l=>l.s).join(" ");
+  R.isApproval=APPROVAL_RE.test(txt);
+  if(!R.isApproval) return R;
+  const S=supplyParse(lines);
+  for(const s of S){ const e=R.items.find(x=>x.type===s.type);
+    if(!e){ R.items.push(s); continue; }
+    for(const k of ["cap","kw","qty","whd","tag","rpm","dia"]) if(e[k]==null&&s[k]!=null) e[k]=s[k]; }
+  for(const t of ["aer","dec","panel"]) if(!R[t]) R[t]=R.items.find(x=>x.type===t)||null;
+  return R;
+}
+
 // ===== v12: 자료 한꺼번에 불러오기 — 압축파일(zip·rar·7z·tar) 풀기 · 파일 종류별 자동 분류 · 여러 장 처리 =====
 const ARC_CDN = {
   lib:    "https://cdn.jsdelivr.net/npm/libarchive.js@2.0.2/dist/libarchive.js",
@@ -1710,10 +1747,11 @@ async function ingestFiles(list, hint){
     const specPdfs=[]; let capPdf=null;
     const drawPdfs=[]; const elecPdfs=[];
     for(const p of pdf){ try{ st.innerHTML=`<b>${h(p.name)}</b> — PDF 확인 중…`; await tick();
-        const {pages}=await readPdf(new Uint8Array(await p.file.arrayBuffer())); const lines=specLinesFromPages(pages); const R=specParse(lines);
+        const {pages}=await readPdf(new Uint8Array(await p.file.arrayBuffer())); const lines=specLinesFromPages(pages); const R=specParseAll(lines);
         const txt=lines.slice(0,400).map(l=>l.s).join(" ");
         const chars=lines.reduce((a,l)=>a+l.s.length,0);
         if(R.items.length) specPdfs.push({...p, R, n:pages.length});
+        else if(R.isApproval) p.skip="승인도서로 보이나 포기장치·배출장치·제어반 사양을 찾지 못함";   // 승인도서는 전기 도면으로 보지 않음
         else if(elScore(lines.map(l=>l.s))>=20) elecPdfs.push({...p, pages});   // 전기·계측 도면 PDF
         else if(pages.length>=2 && chars/pages.length<120) drawPdfs.push(p);   // 글자가 그림으로 된 도면 PDF
         else if(!cap && !capPdf && /용량\s*계산서|물질\s*수지/.test(txt)) capPdf=p;
@@ -2493,9 +2531,9 @@ function updAtt(){
   if(ATT.dwgBusy) set("attDwg", false, "📐 설계도면", "해석 중…", "busy");
   else if(ATT.dwgErr) set("attDwg", false, "📐 설계도면", "읽기 실패 — 아래 Ⓓ 안내 확인", "err");
   else set("attDwg", !!D, "📐 설계도면", D? `✓ ${h(V9.dwgName)}${V9.dwgNames&&V9.dwgNames.length>1?` <small>(${V9.dwgNames.length}장)</small>`:""} <small>문자 ${D.nText.toLocaleString()} · 치수 ${D.nDim.toLocaleString()}</small>${rs}` : "미첨부");
-  if(ATT.specBusy) set("attSpec", false, "📑 시방서·장비일람표", "읽는 중…", "busy");
-  else if(ATT.specErr) set("attSpec", false, "📑 시방서·장비일람표", "읽기 실패", "err");
-  else set("attSpec", !!V9.spec, "📑 시방서·장비일람표", V9.spec? `✓ ${h(V9.specName)} <small>기기 ${V9.spec.items.length}개</small>${rs}` : "미첨부");
+  if(ATT.specBusy) set("attSpec", false, "📑 시방서·승인도서", "읽는 중…", "busy");
+  else if(ATT.specErr) set("attSpec", false, "📑 시방서·승인도서", "읽기 실패", "err");
+  else set("attSpec", !!V9.spec, "📑 시방서·승인도서", V9.spec? `✓ ${h(V9.specName)} <small>기기 ${V9.spec.items.length}개</small>${rs}` : "미첨부");
   { const en=V9.elecNames||[]; set("attElec", en.length>0, "⚡ 전기·계측 도면", en.length? `✓ ${h(en.length>1?`${en[0]} 외 ${en.length-1}개`:en[0])}` : "미첨부"); }
   const mark=(id,name)=>{ const e=$(id); if(!e) return; let s=e.querySelector(".v10done"); if(!name){ e.classList.remove("done"); if(s) s.remove(); return; } e.classList.add("done"); if(!s){ s=document.createElement("div"); s.className="v10done"; e.appendChild(s); } s.innerHTML=`✓ 첨부됨: <b>${h(name)}</b> <small>(다른 파일을 올리면 바꿉니다)</small>`; };
   mark("drop", xn); mark("v9drop", D&&!ATT.dwgBusy? V9.dwgName : ""); mark("v11drop", V9.spec&&!ATT.specBusy? V9.specName : "");
@@ -2570,8 +2608,8 @@ async function loadSpec(file){
     const {pages}=await readPdf(new Uint8Array(await file.arrayBuffer()));
     const lines=specLinesFromPages(pages);
     if(lines.length<5) throw new Error("글자를 읽지 못했습니다 — 스캔(이미지) PDF일 수 있습니다");
-    const R=specParse(lines);
-    if(!R.items.length && elScore(lines.map(l=>l.s))>=20){ V9.elecPdf=[...(V9.elecPdf||[]).filter(x=>x.name!==file.name), ...pages.map((p,k)=>({name:file.name, page:k+1, items:p.items}))]; V9.elecNames=[...new Set([...(V9.elecNames||[]), file.name])]; elRefresh();
+    const R=specParseAll(lines);
+    if(!R.items.length && !R.isApproval && elScore(lines.map(l=>l.s))>=20){ V9.elecPdf=[...(V9.elecPdf||[]).filter(x=>x.name!==file.name), ...pages.map((p,k)=>({name:file.name, page:k+1, items:p.items}))]; V9.elecNames=[...new Set([...(V9.elecNames||[]), file.name])]; elRefresh();
       st.innerHTML=`<b>${h(file.name)}</b> — 전기·계측 도면 ${pages.length}쪽: ${h(elSummary(V9.elec))}`; renderCmp9(); return; }
     if(!R.items.length) throw new Error("‘2.1 포기장치(M-201)’처럼 기기번호가 붙은 항목 제목을 찾지 못했습니다");
     V9.spec=R; V9.specName=file.name;
@@ -2903,7 +2941,7 @@ async function makeXlsx(){
 </style>
 <script>
 (function(){
-  const ver='12.3.1';
+  const ver='12.3.2';
   const desk = location.protocol==='app:';
   const h1=document.querySelector('h1'); if(!h1) return;
   const b=document.createElement('button'); b.id='updBtn'; b.textContent='⟳ 업데이트 (현재 v'+ver+')';

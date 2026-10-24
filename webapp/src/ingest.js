@@ -70,10 +70,11 @@ async function ingestFiles(list, hint){
     const specPdfs=[]; let capPdf=null;
     const drawPdfs=[]; const elecPdfs=[];
     for(const p of pdf){ try{ st.innerHTML=`<b>${h(p.name)}</b> — PDF 확인 중…`; await tick();
-        const {pages}=await readPdf(new Uint8Array(await p.file.arrayBuffer())); const lines=specLinesFromPages(pages); const R=specParse(lines);
+        const {pages}=await readPdf(new Uint8Array(await p.file.arrayBuffer())); const lines=specLinesFromPages(pages); const R=specParseAll(lines);
         const txt=lines.slice(0,400).map(l=>l.s).join(" ");
         const chars=lines.reduce((a,l)=>a+l.s.length,0);
         if(R.items.length) specPdfs.push({...p, R, n:pages.length});
+        else if(R.isApproval) p.skip="승인도서로 보이나 포기장치·배출장치·제어반 사양을 찾지 못함";   // 승인도서는 전기 도면으로 보지 않음
         else if(elScore(lines.map(l=>l.s))>=20) elecPdfs.push({...p, pages});   // 전기·계측 도면 PDF
         else if(pages.length>=2 && chars/pages.length<120) drawPdfs.push(p);   // 글자가 그림으로 된 도면 PDF
         else if(!cap && !capPdf && /용량\s*계산서|물질\s*수지/.test(txt)) capPdf=p;

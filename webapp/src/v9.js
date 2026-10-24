@@ -251,9 +251,9 @@ function updAtt(){
   if(ATT.dwgBusy) set("attDwg", false, "📐 설계도면", "해석 중…", "busy");
   else if(ATT.dwgErr) set("attDwg", false, "📐 설계도면", "읽기 실패 — 아래 Ⓓ 안내 확인", "err");
   else set("attDwg", !!D, "📐 설계도면", D? `✓ ${h(V9.dwgName)}${V9.dwgNames&&V9.dwgNames.length>1?` <small>(${V9.dwgNames.length}장)</small>`:""} <small>문자 ${D.nText.toLocaleString()} · 치수 ${D.nDim.toLocaleString()}</small>${rs}` : "미첨부");
-  if(ATT.specBusy) set("attSpec", false, "📑 시방서·장비일람표", "읽는 중…", "busy");
-  else if(ATT.specErr) set("attSpec", false, "📑 시방서·장비일람표", "읽기 실패", "err");
-  else set("attSpec", !!V9.spec, "📑 시방서·장비일람표", V9.spec? `✓ ${h(V9.specName)} <small>기기 ${V9.spec.items.length}개</small>${rs}` : "미첨부");
+  if(ATT.specBusy) set("attSpec", false, "📑 시방서·승인도서", "읽는 중…", "busy");
+  else if(ATT.specErr) set("attSpec", false, "📑 시방서·승인도서", "읽기 실패", "err");
+  else set("attSpec", !!V9.spec, "📑 시방서·승인도서", V9.spec? `✓ ${h(V9.specName)} <small>기기 ${V9.spec.items.length}개</small>${rs}` : "미첨부");
   { const en=V9.elecNames||[]; set("attElec", en.length>0, "⚡ 전기·계측 도면", en.length? `✓ ${h(en.length>1?`${en[0]} 외 ${en.length-1}개`:en[0])}` : "미첨부"); }
   const mark=(id,name)=>{ const e=$(id); if(!e) return; let s=e.querySelector(".v10done"); if(!name){ e.classList.remove("done"); if(s) s.remove(); return; } e.classList.add("done"); if(!s){ s=document.createElement("div"); s.className="v10done"; e.appendChild(s); } s.innerHTML=`✓ 첨부됨: <b>${h(name)}</b> <small>(다른 파일을 올리면 바꿉니다)</small>`; };
   mark("drop", xn); mark("v9drop", D&&!ATT.dwgBusy? V9.dwgName : ""); mark("v11drop", V9.spec&&!ATT.specBusy? V9.specName : "");
@@ -328,8 +328,8 @@ async function loadSpec(file){
     const {pages}=await readPdf(new Uint8Array(await file.arrayBuffer()));
     const lines=specLinesFromPages(pages);
     if(lines.length<5) throw new Error("글자를 읽지 못했습니다 — 스캔(이미지) PDF일 수 있습니다");
-    const R=specParse(lines);
-    if(!R.items.length && elScore(lines.map(l=>l.s))>=20){ V9.elecPdf=[...(V9.elecPdf||[]).filter(x=>x.name!==file.name), ...pages.map((p,k)=>({name:file.name, page:k+1, items:p.items}))]; V9.elecNames=[...new Set([...(V9.elecNames||[]), file.name])]; elRefresh();
+    const R=specParseAll(lines);
+    if(!R.items.length && !R.isApproval && elScore(lines.map(l=>l.s))>=20){ V9.elecPdf=[...(V9.elecPdf||[]).filter(x=>x.name!==file.name), ...pages.map((p,k)=>({name:file.name, page:k+1, items:p.items}))]; V9.elecNames=[...new Set([...(V9.elecNames||[]), file.name])]; elRefresh();
       st.innerHTML=`<b>${h(file.name)}</b> — 전기·계측 도면 ${pages.length}쪽: ${h(elSummary(V9.elec))}`; renderCmp9(); return; }
     if(!R.items.length) throw new Error("‘2.1 포기장치(M-201)’처럼 기기번호가 붙은 항목 제목을 찾지 못했습니다");
     V9.spec=R; V9.specName=file.name;

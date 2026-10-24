@@ -74,3 +74,40 @@ function specParse(lines){
   return {items:out, facts, panel:by.panel||null, aer:by.aer||null, dec:by.dec||null, feed:by.feed||null, eff:by.eff||null, tp:by.tp||null, nLines:lines.length};
 }
 if(typeof module!=="undefined") module.exports={specParse,specLinesFromPages};
+
+// ===== 승인도서: '공급기기 목록'·'DATA SHEET' 에서 공법 기자재 사양 읽기 (시방서 항목 제목이 없거나 값이 빠졌을 때 보충) =====
+const APPROVAL_RE=/제\s*작\s*승\s*인\s*도\s*서|공급\s*기기\s*목록|DATA\s*SHEET|설계\s*\/?\s*제작\s*시방서|승인\s*도서/i;
+function supplyParse(lines){
+  const num=s=>parseFloat(String(s).replace(/,/g,""));
+  const out={}; const mk=(t,name)=> out[t]=out[t]||{type:t, name, fromTable:true, src:"승인도서 공급기기 목록"};
+  const pg=(lines.find(l=>/공급\s*기기\s*목록/.test(l.s))||{}).page;
+  if(pg){ const L=lines.filter(l=>l.page===pg); const tagAt=i=>{ for(let d=0;d<=3;d++) for(const j of [i-d,i+d]){ const m=L[j]&&L[j].s.match(/\b(\d?M-\d{3})/); if(m) return m[1]; } return null; };
+    L.forEach((l,i)=>{ const s=l.s; let m;
+      if(/터빈|포기|폭기/.test(s) && (m=s.match(/([\d.]+)\s*kg\s*[·.\-]?\s*O\s*[2₂]/i))){ const e=mk("aer","포기장치"); e.cap={v:num(m[1]),unit:"kgO₂/h",raw:s.slice(0,60)}; const d=s.match(/[ØΦφ∅]\s*([\d,]+)\s*mm/); if(d) e.dia=num(d[1]); const q=s.match(/(\d+)\s*set/i); if(q) e.qty=+q[1]; e.tag=e.tag||tagAt(i); e.page=pg; }
+      if(/감속기|모터/.test(s) && !/윈치/.test(s) && (m=s.match(/([\d.]+)\s*kW/i))){ const e=mk("aer","포기장치"); e.kw={v:num(m[1]),label:"동력",raw:s.slice(0,60)}; e.page=pg; }
+      if(/디\s*[켄캔]\s*터|배출\s*장치|Decanter/i.test(s) && (m=s.match(/([\d.]+)\s*(?:L|ℓ)\s*\/\s*s(?:ec)?/i))){ const e=mk("dec","처리수배출장치"); e.cap={v:num(m[1]),unit:"L/s",raw:s.slice(0,60)}; const q=s.match(/(\d+)\s*set/i); if(q) e.qty=+q[1]; e.tag=e.tag||tagAt(i); e.page=pg; }
+      if(/윈치/.test(s) && (m=s.match(/([\d.]+)\s*kW/i))){ const e=mk("dec","처리수배출장치"); e.kw={v:num(m[1]),label:"동력",raw:s.slice(0,60)}; e.page=pg; }
+      if(/제어반|PLC|인버터/.test([L[i-1],l,L[i+1],L[i+2]].filter(Boolean).map(x=>x.s).join(" ")) && !/현장\s*조작|조작반/.test(s) && (m=s.match(/([\d.]+)\s*m?\s*W\s*[x×*]\s*([\d.]+)\s*m?\s*D\s*[x×*]\s*([\d.]+)\s*m?\s*H/i))){ const e=mk("panel","반응조 제어반"); const f=v=>{ v=num(v); return Math.round(v<10?v*1000:v); }; e.whd=`${f(m[1])} × ${f(m[2])} × ${f(m[3])}`; const q=s.match(/(\d+)\s*면/); if(q) e.qty=+q[1]; e.tag=e.tag||tagAt(i); e.page=pg; }
+    }); }
+  // DATA SHEET: 산소 전달량 · 적용 동력 · 운전 회전수
+  const ds=lines.filter(l=>/DATA\s*SHEET/i.test(l.s)).map(l=>l.page); const dsp=new Set(ds);
+  const DL=lines.filter(l=>dsp.has(l.page)); let m;
+  for(const l of DL){ const s=l.s;
+    if(/산소\s*전달량/.test(s) && (m=s.match(/([\d.]+)\s*kg\s*[·.\-]?\s*O\s*[2₂]/i))){ const e=mk("aer","포기장치"); if(!e.cap) e.cap={v:num(m[1]),unit:"kgO₂/h",raw:s.slice(0,60)}; }
+    if(/적용\s*동력|Shaft/i.test(s) && (m=s.match(/([\d.]+)\s*kW/i))){ const e=mk("aer","포기장치"); if(!e.kw) e.kw={v:num(m[1]),label:"동력",raw:s.slice(0,60)}; }
+    if(/운전\s*회전수/.test(s) && (m=s.match(/([\d.]+)\s*rpm/i))){ const e=mk("aer","포기장치"); e.rpm=e.rpm||num(m[1]); }
+  }
+  return Object.values(out);
+}
+// 시방서 파싱 + 승인도서 보충: 같은 종류 항목의 빈 값만 채움, 없는 종류는 새로 추가
+function specParseAll(lines){
+  const R=specParse(lines); const txt=lines.slice(0,600).map(l=>l.s).join(" ");
+  R.isApproval=APPROVAL_RE.test(txt);
+  if(!R.isApproval) return R;
+  const S=supplyParse(lines);
+  for(const s of S){ const e=R.items.find(x=>x.type===s.type);
+    if(!e){ R.items.push(s); continue; }
+    for(const k of ["cap","kw","qty","whd","tag","rpm","dia"]) if(e[k]==null&&s[k]!=null) e[k]=s[k]; }
+  for(const t of ["aer","dec","panel"]) if(!R[t]) R[t]=R.items.find(x=>x.type===t)||null;
+  return R;
+}
