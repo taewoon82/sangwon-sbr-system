@@ -32,5 +32,35 @@ assert anchor in out, 'COR anchor'
 out=out.replace(anchor, anchor+'\n  if(R.glob.delta==null && R.ref.COR && R.ref.SOR && R.glob.ta){ const d=R.ref.COR[0]*R.glob.ta/R.ref.SOR[0]; if(isFinite(d)&&d>0.8&&d<1.6){ R.glob.delta=Math.round(d*100)/100; R.src.delta=R.src.ta; R.deltaInferred=true; } }')
 out=out.replace('<title>물질수지·터빈 선정 (PDF 자동입력)</title>','<title>물질수지·터빈 선정 v12 (도면·시방서 대조·검토서)</title>')
 out=out.replace('>SBR 반응조 물질수지 · 표면포기기 터빈 선정</h1>','>SBR 반응조 물질수지 · 표면포기기 터빈 선정 <small style="font-size:.55em;opacity:.7">v12 · 도면·시방서·압축파일 대조·검토서</small></h1>')
+APP_VER='12.2.1'
+out=out.replace('v12 · 도면·시방서·압축파일 대조·검토서</small></h1>','v'+APP_VER+' · 도면·시방서·압축파일 대조·검토서</small></h1>')
+PRINTFIX = """<style>
+@media print{
+  /* 큰 칸이 통째로 다음 장으로 밀려 첫 장이 비던 문제: 칸이 페이지 경계에서 나뉘도록 */
+  section,details.coef,.hero{display:block !important;break-inside:auto !important;page-break-inside:auto !important}
+  section>h2,details.coef>summary{break-after:avoid;page-break-after:avoid}
+  .row,.rline,tr,.note,.alert{break-inside:avoid;page-break-inside:avoid}
+  #updBtn,#updPop{display:none !important}
+}
+#updBtn{margin-left:8px;font-size:12px;padding:3px 9px;border:1px solid var(--accent);border-radius:4px;background:transparent;color:var(--accent);cursor:pointer}
+#updPop{display:none;position:fixed;top:56px;right:16px;z-index:50;max-width:340px;background:var(--bg,#fff);color:var(--ink,#111);border:1px solid var(--accent);border-radius:6px;padding:12px 14px;font-size:13px;line-height:1.6;box-shadow:0 4px 18px rgba(0,0,0,.18)}
+#updPop.on{display:block}
+</style>
+<script>
+(function(){
+  const ver='"""+APP_VER+"""';
+  const desk = location.protocol==='app:';
+  const h1=document.querySelector('h1'); if(!h1) return;
+  const b=document.createElement('button'); b.id='updBtn'; b.textContent='⟳ 업데이트 (현재 v'+ver+')';
+  const p=document.createElement('div'); p.id='updPop';
+  p.innerHTML = desk
+    ? '<b>업데이트 방법</b><br>① 깃허브 <code>desktop/updates</code>에서 최신 <code>SBR-Design-Review_update_v….zip</code> 내려받기<br>② 창 맨 위 메뉴 <b>[업데이트] → [업데이트 파일 열기…]</b>에서 그 zip 선택<br><small>메뉴줄이 안 보이면 <b>Alt</b> 키를 누르세요. 적용 후 제목 옆 버전이 바뀝니다.</small>'
+    : '<b>최신 버전 받기</b><br>깃허브 <code>webapp/</code> 폴더의 <code>SBR_물질수지·터빈선정_v12.html</code>을 다시 내려받아 여세요.<br><small>폰 링크는 항상 최신으로 자동 반영됩니다.</small>';
+  b.onclick=e=>{ e.stopPropagation(); p.classList.toggle('on'); };
+  document.addEventListener('click',e=>{ if(!p.contains(e.target)) p.classList.remove('on'); });
+  h1.insertAdjacentElement('afterend', b); document.body.appendChild(p);
+})();
+</script>"""
+k=out.rfind('</body>'); out=out[:k]+PRINTFIX+out[k:]
 open('SBR_v12.html','w',encoding='utf-8').write(out)
 print(len(out))

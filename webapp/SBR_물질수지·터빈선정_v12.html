@@ -236,7 +236,7 @@ button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 <header>
   <div class="hbar">
     <div class="hbar-title">
-      <h1 id="appTitle">SBR 반응조 물질수지 · 표면포기기 터빈 선정 <small style="font-size:.55em;opacity:.7">v12 · 도면·시방서·압축파일 대조·검토서</small></h1>
+      <h1 id="appTitle">SBR 반응조 물질수지 · 표면포기기 터빈 선정 <small style="font-size:.55em;opacity:.7">v12.2.1 · 도면·시방서·압축파일 대조·검토서</small></h1>
       <p>용량계산서 PDF를 불러오면 칸이 자동으로 채워집니다(초록 칸 = 계산서에서 읽는 항목). 밝은 노란 칸은 계산서에 없어 직접 입력합니다. 유입수질·반응조 조건 → 물질수지(SRT·슬러지·질산화·침전) → 필요산소량(AOR→SOR→COR) → 터빈 규격·동력·토크까지 이어서 계산합니다. COR을 용량계산서 값으로 직접 넣는 방식도 그대로 쓸 수 있습니다.</p>
     </div>
     <div class="hbar-meta">
@@ -2744,5 +2744,31 @@ async function makeXlsx(){
 })();
 
 </script>
-</body>
+<style>
+@media print{
+  /* 큰 칸이 통째로 다음 장으로 밀려 첫 장이 비던 문제: 칸이 페이지 경계에서 나뉘도록 */
+  section,details.coef,.hero{display:block !important;break-inside:auto !important;page-break-inside:auto !important}
+  section>h2,details.coef>summary{break-after:avoid;page-break-after:avoid}
+  .row,.rline,tr,.note,.alert{break-inside:avoid;page-break-inside:avoid}
+  #updBtn,#updPop{display:none !important}
+}
+#updBtn{margin-left:8px;font-size:12px;padding:3px 9px;border:1px solid var(--accent);border-radius:4px;background:transparent;color:var(--accent);cursor:pointer}
+#updPop{display:none;position:fixed;top:56px;right:16px;z-index:50;max-width:340px;background:var(--bg,#fff);color:var(--ink,#111);border:1px solid var(--accent);border-radius:6px;padding:12px 14px;font-size:13px;line-height:1.6;box-shadow:0 4px 18px rgba(0,0,0,.18)}
+#updPop.on{display:block}
+</style>
+<script>
+(function(){
+  const ver='12.2.1';
+  const desk = location.protocol==='app:';
+  const h1=document.querySelector('h1'); if(!h1) return;
+  const b=document.createElement('button'); b.id='updBtn'; b.textContent='⟳ 업데이트 (현재 v'+ver+')';
+  const p=document.createElement('div'); p.id='updPop';
+  p.innerHTML = desk
+    ? '<b>업데이트 방법</b><br>① 깃허브 <code>desktop/updates</code>에서 최신 <code>SBR-Design-Review_update_v….zip</code> 내려받기<br>② 창 맨 위 메뉴 <b>[업데이트] → [업데이트 파일 열기…]</b>에서 그 zip 선택<br><small>메뉴줄이 안 보이면 <b>Alt</b> 키를 누르세요. 적용 후 제목 옆 버전이 바뀝니다.</small>'
+    : '<b>최신 버전 받기</b><br>깃허브 <code>webapp/</code> 폴더의 <code>SBR_물질수지·터빈선정_v12.html</code>을 다시 내려받아 여세요.<br><small>폰 링크는 항상 최신으로 자동 반영됩니다.</small>';
+  b.onclick=e=>{ e.stopPropagation(); p.classList.toggle('on'); };
+  document.addEventListener('click',e=>{ if(!p.contains(e.target)) p.classList.remove('on'); });
+  h1.insertAdjacentElement('afterend', b); document.body.appendChild(p);
+})();
+</script></body>
 </html>
