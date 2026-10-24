@@ -1,5 +1,7 @@
-import json, sys, re, os
-pre=open(os.path.join(os.path.dirname(os.path.abspath(__file__)),'viewer_template.html'),encoding='utf-8').read()
+import json, sys, re
+old=open('old.html',encoding='utf-8').read()
+a=old.find('<script id="data"')
+pre=old[:a]
 data=json.load(open(sys.argv[1])); out=sys.argv[2]
 G=data['geo']
 # 텍스트 교체
@@ -14,6 +16,6 @@ pre=re.sub(r'<div class="lab">정체 지점 \(.*?\)</div>','<div class="lab" id=
 i=pre.index('<p class="note"><strong>모델 한계</strong>'); j=pre.index('</section>',i)
 pre=pre[:i]+''.join(f'<p class="note"><strong>{k}</strong> {v}</p>\n      ' for k,v in G['notes'])+pre[j:]
 pre=pre.replace('<label><input id="cS" type="checkbox" checked> 벽·기둥</label>','<label><input id="cS" type="checkbox" checked> 벽·헌치·십자구조물</label>')
-js=open(os.path.join(os.path.dirname(os.path.abspath(__file__)),'viewer2.js'),encoding='utf-8').read()
+js=open(__import__('os').environ.get('VJS','viewer2.js'),encoding='utf-8').read()
 html=pre+'<script id="data" type="application/json">'+json.dumps(data,ensure_ascii=False,separators=(',',':'))+'</script>\n<script>\n'+js+'\n</script>\n</body>\n</html>\n'
 open(out,'w',encoding='utf-8').write(html); print(len(html))

@@ -56,6 +56,27 @@ if hn > 0:
 cross = box(xc-cw/2, xc+cw/2, yc-ct/2, yc+ct/2, -E, ch) + box(xc-ct/2, xc+ct/2, yc-cw/2, yc+cw/2, -E, ch)
 stl("haunch", haunch); stl("cross", cross)
 
+# 잠긴 구조물 (기둥·가이드레일·플로트·배출장치 등): {"name": [{"t":"cyl","p0":[x,y,z],"p1":[x,y,z],"r":..} | {"t":"box","min":[..],"max":[..]}]}
+def cyl(p0, p1, r, seg=None):
+    p0 = np.asarray(p0, float); p1 = np.asarray(p1, float); a = p1 - p0; a /= np.linalg.norm(a)
+    t0 = np.array([1, 0, 0]) if abs(a[0]) < 0.9 else np.array([0, 1, 0])
+    u = np.cross(a, t0); u /= np.linalg.norm(u); v = np.cross(a, u)
+    n = seg or max(16, min(48, int(2*math.pi*r/0.03)))
+    A = [p0 + r*(math.cos(2*math.pi*k/n)*u + math.sin(2*math.pi*k/n)*v) for k in range(n)]
+    B = [p + (p1 - p0) for p in A]; t = []
+    for k in range(n):
+        j = (k+1) % n
+        t += [(A[k], A[j], B[j]), (A[k], B[j], B[k]), (p0, A[j], A[k]), (p1, B[k], B[j])]
+    return t
+OBST = P.get("obst", {})
+for gname, items in OBST.items():
+    tris = []
+    for it in items:
+        if it["t"] == "cyl": tris += cyl(it["p0"], it["p1"], it["r"])
+        elif it["t"] == "box": tris += box(it["min"][0], it["max"][0], it["min"][1], it["max"][1], it["min"][2], it["max"][2])
+    stl(gname, tris)
+ON = list(OBST.keys())
+
 # 터빈 원통: 하부 원판(흡입 원 + 링), 옆면(하단 벽 + 상단 토출 띠), 상부 원판은 수면 위
 N = 72; zb = H - depth; zt = H + 0.25; zband = H - band
 ang = [2*math.pi*i/N for i in range(N)]
@@ -96,7 +117,7 @@ boundary (
 """)
 w("system/surfaceFeatureExtractDict", "dictionary", "surfaceFeatureExtractDict", "".join(f"""
 {n}.stl {{ extractionMethod extractFromSurface; extractFromSurfaceCoeffs {{ includedAngle 150; }} writeObj no; }}
-""" for n in ["haunch","cross","turb_suction","turb_wall","turb_band"]))
+""" for n in ["haunch","cross","turb_suction","turb_wall","turb_band"]+ON))
 inX, inY = W*0.27, L*0.31
 w("system/snappyHexMeshDict", "dictionary", "snappyHexMeshDict", f"""
 castellatedMesh true; snap true; addLayers false;
@@ -106,7 +127,7 @@ geometry {{
   turb_suction.stl {{ type triSurfaceMesh; name turb_suction; }}
   turb_wall.stl {{ type triSurfaceMesh; name turb_wall; }}
   turb_band.stl {{ type triSurfaceMesh; name turb_band; }}
-  turbZone {{ type searchableCylinder; point1 ({xc} {yc} {zb-0.6}); point2 ({xc} {yc} {H}); radius {Rb+0.6}; }}
+{"".join(f"  {n}.stl {{ type triSurfaceMesh; name {n}; }}\n" for n in ON)}  turbZone {{ type searchableCylinder; point1 ({xc} {yc} {zb-0.6}); point2 ({xc} {yc} {H}); radius {Rb+0.6}; }}
   crossZone {{ type searchableBox; min ({xc-cw/2-0.3} {yc-cw/2-0.3} 0); max ({xc+cw/2+0.3} {yc+cw/2+0.3} {ch+0.3}); }}
 }};
 castellatedMeshControls {{
@@ -114,6 +135,7 @@ castellatedMeshControls {{
   features (
     {{ file "haunch.eMesh"; level 0; }} {{ file "cross.eMesh"; level {lvl}; }}
     {{ file "turb_suction.eMesh"; level {lvl+1}; }} {{ file "turb_wall.eMesh"; level {lvl+1}; }} {{ file "turb_band.eMesh"; level {lvl+1}; }}
+    {" ".join(f'{{ file "{n}.eMesh"; level {lvl+1}; }}' for n in ON)}
   );
   refinementSurfaces {{
     haunch {{ level (0 1); patchInfo {{ type wall; }} }}
@@ -121,7 +143,7 @@ castellatedMeshControls {{
     turb_suction {{ level ({lvl+1} {lvl+1}); patchInfo {{ type patch; }} }}
     turb_wall {{ level ({lvl+1} {lvl+1}); patchInfo {{ type wall; }} }}
     turb_band {{ level ({lvl+1} {lvl+1}); patchInfo {{ type patch; }} }}
-  }};
+{"".join(f"    {n} {{ level ({lvl+1} {lvl+1}); patchInfo {{ type wall; }} }}\n" for n in ON)}  }};
   resolveFeatureAngle 30;
   refinementRegions {{ turbZone {{ mode inside; levels ((1E15 {lvl})); }} crossZone {{ mode inside; levels ((1E15 {lvl})); }} }};
   locationInMesh ({inX} {inY} {H*0.37});
@@ -166,7 +188,7 @@ Vr = Q / A_band
 rpm_eq = Vt_target / Rb * 60 / (2*math.pi) * (1 if P.get("ccw", True) else -1)
 k_in = 1.5*(0.1*math.hypot(Vr, Vt_target))**2
 eps_in = 0.09**0.75 * k_in**1.5 / (0.07*band)
-walls = "walls|floor|haunch|cross|turb_wall"
+walls = "|".join(["walls","floor","haunch","cross","turb_wall"]+ON)
 w("0/U", "volVectorField", "U", f"""
 dimensions [0 1 -1 0 0 0 0]; internalField uniform (0 0 0);
 boundaryField {{
