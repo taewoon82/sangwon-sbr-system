@@ -114,7 +114,7 @@ function model(){
     row("tAer","포기장치",D.eqAer); row("tDec","배출장치",D.eqDec); row("tFeed","반응조 공급펌프",D.eqFeed); row("tWas","잉여슬러지 펌프",D.eqWas); row("tEff","처리수 이송(총인 공급) 펌프",D.eqEff); }
   const SP=V9.spec;
   if(SP){ const u=(e,k)=>e&&e[k]?e[k]:null, cv=(e,unit)=>{ const c=u(e,"cap"); if(!c) return null; if(c.unit===unit) return c.v; if(unit==="㎥/min"&&c.unit==="㎥/h") return Math.round(c.v/60*1000)/1000; if(unit==="㎥/min"&&c.unit==="㎥/d") return Math.round(c.v/1440*1000)/1000; return null; };
-    const sx=(e)=>e?`${e.no} ${e.name} (${e.tag})`:"시방서에 없음";
+    const sx=(e)=>e?`${e.no||""} ${e.name}${e.tag?` (${e.tag})`:""}`.trim():"시방서에 없음";
     add("장비 사양 (시방서·도면 기기일람표)","sAerKw","포기장치 동력 (사양)","kW", designKW(), u(SP.aer,"kw")?SP.aer.kw.v:null,{xsrc:"웹앱 설계 소요동력",dnote:SP.aer?`${sx(SP.aer)} ${SP.aer.kw?SP.aer.kw.label:""}${SP.aer.kwNote?" · "+SP.aer.kwNote:""}`:"",cmp:"ge"});
     add("장비 사양 (시방서·도면 기기일람표)","sAerO2","포기장치 용량 (사양)","kgO₂/h", val(X.o2), SP.aer&&SP.aer.cap&&SP.aer.cap.unit==="kgO₂/h"?SP.aer.cap.v:null,{xsrc:"계산서 최대",dnote:SP.aer?sx(SP.aer):"",cmp:"ge"});
     add("장비 사양 (시방서·도면 기기일람표)","sDecQ","배출장치 용량 (사양)","L/s", val(X.qin), SP.dec&&SP.dec.cap&&SP.dec.cap.unit==="L/s"?SP.dec.cap.v:null,{xsrc:"계산서 QIN",dnote:SP.dec?sx(SP.dec):"",cmp:"ge"});
@@ -205,7 +205,7 @@ function planLayout(W,L,nT){
 }
 function designKW(){ const t=($("powerOut")?.innerText||""); const m=t.match(/설계 소요동력[\s\S]*?([\d.,]+)\s*kW/); return m? parseFloat(m[1].replace(/,/g,"")) : null; }
 function hoistName(s){ return String(s||"").replace(/(호이스트(?:\s*[A-Z](?![가-힣]))?).*$/,"$1"); }
-function srcL(e){ return e&&e.fromTable?"도면 기기일람표":"시방서"; }
+function srcL(e){ return e&&(e.approval||e.src&&/승인도서/.test(e.src))?"승인도서":e&&e.fromTable?"도면 기기일람표":"시방서"; }
 function capTxt(e){ return e&&e.cap?`${e.cap.v.toLocaleString()} ${e.cap.unit}${e.head?` × H${e.head}m`:""}`:""; }
 function fmtQty(e){ if(!e||!e.qty) return ""; const ks=Object.keys(e.qty).sort(); return ks.length>1? ks.map(k=>`${k}단계 ${e.qty[k]}`).join(" / ") : `수량 ${e.qty[ks[0]]}`; }
 function qtyNow(e){ if(!e||!e.qty) return null; const q=e.qty["1"]??Object.values(e.qty)[0]; const m=String(q||"").match(/^(\d+)(?:\((\d+)\))?$/); return m?{n:+m[1],spare:m[2]?+m[2]:0,raw:q}:null; }

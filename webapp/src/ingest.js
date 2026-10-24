@@ -96,7 +96,7 @@ async function ingestFiles(list, hint){
 }
 function applySpecs(list){
   const items=[], facts={}; for(const s of list){ items.push(...s.R.items); for(const [k,v] of Object.entries(s.R.facts||{})) if(!facts[k]) facts[k]=v; }
-  const pick=t=>items.find(e=>e.type===t&&!e.fromTable&&(e.cap||e.kw||e.whd||e.mat))||items.find(e=>e.type===t&&(e.cap||e.kw||e.whd||e.mat))||items.find(e=>e.type===t)||null;
+  const pick=t=>items.find(e=>e.type===t&&!e.fromTable&&!e.approval&&(e.cap||e.kw||e.whd||e.mat))||items.find(e=>e.type===t&&!e.fromTable&&(e.cap||e.kw||e.whd||e.mat))||items.find(e=>e.type===t&&(e.cap||e.kw||e.whd||e.mat))||items.find(e=>e.type===t)||null;
   V9.spec={items, facts, aer:pick("aer"), dec:pick("dec"), panel:pick("panel"), feed:pick("feed"), eff:pick("eff"), tp:pick("tp")};
   const nm=list.map(x=>x.name); V9.specName=nm.length>1?`${nm[0]} 외 ${nm.length-1}개`:nm[0]; ATT.specErr=""; updAtt();
 }

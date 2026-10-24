@@ -236,7 +236,7 @@ button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 <header>
   <div class="hbar">
     <div class="hbar-title">
-      <h1 id="appTitle">SBR 반응조 물질수지 · 표면포기기 터빈 선정 <small style="font-size:.55em;opacity:.7">v12.3.2 · 도면·시방서·압축파일 대조·검토서</small></h1>
+      <h1 id="appTitle">SBR 반응조 물질수지 · 표면포기기 터빈 선정 <small style="font-size:.55em;opacity:.7">v12.3.3 · 도면·시방서·압축파일 대조·검토서</small></h1>
       <p>용량계산서 PDF를 불러오면 칸이 자동으로 채워집니다(초록 칸 = 계산서에서 읽는 항목). 밝은 노란 칸은 계산서에 없어 직접 입력합니다. 유입수질·반응조 조건 → 물질수지(SRT·슬러지·질산화·침전) → 필요산소량(AOR→SOR→COR) → 터빈 규격·동력·토크까지 이어서 계산합니다. COR을 용량계산서 값으로 직접 넣는 방식도 그대로 쓸 수 있습니다.</p>
     </div>
     <div class="hbar-meta">
@@ -1642,15 +1642,15 @@ if(typeof module!=="undefined") module.exports={specParse,specLinesFromPages};
 const APPROVAL_RE=/제\s*작\s*승\s*인\s*도\s*서|공급\s*기기\s*목록|DATA\s*SHEET|설계\s*\/?\s*제작\s*시방서|승인\s*도서/i;
 function supplyParse(lines){
   const num=s=>parseFloat(String(s).replace(/,/g,""));
-  const out={}; const mk=(t,name)=> out[t]=out[t]||{type:t, name, fromTable:true, src:"승인도서 공급기기 목록"};
+  const out={}; const mk=(t,name)=> out[t]=out[t]||{type:t, name, no:"승인도서", src:"승인도서 공급기기 목록"};
   const pg=(lines.find(l=>/공급\s*기기\s*목록/.test(l.s))||{}).page;
-  if(pg){ const L=lines.filter(l=>l.page===pg); const tagAt=i=>{ for(let d=0;d<=3;d++) for(const j of [i-d,i+d]){ const m=L[j]&&L[j].s.match(/\b(\d?M-\d{3})/); if(m) return m[1]; } return null; };
+  if(pg){ const L=lines.filter(l=>l.page===pg); const tagAt=i=>{ for(let d=0;d<=3;d++) for(const j of [i-d,i+d]){ const m=L[j]&&L[j].s.match(/\b(\d?M-\d{1,3}(?:-\d{1,2})?)(?=[A-Z]?\b|[A-Z]\/)/); if(m) return m[1]; } return null; };
     L.forEach((l,i)=>{ const s=l.s; let m;
-      if(/터빈|포기|폭기/.test(s) && (m=s.match(/([\d.]+)\s*kg\s*[·.\-]?\s*O\s*[2₂]/i))){ const e=mk("aer","포기장치"); e.cap={v:num(m[1]),unit:"kgO₂/h",raw:s.slice(0,60)}; const d=s.match(/[ØΦφ∅]\s*([\d,]+)\s*mm/); if(d) e.dia=num(d[1]); const q=s.match(/(\d+)\s*set/i); if(q) e.qty=+q[1]; e.tag=e.tag||tagAt(i); e.page=pg; }
+      if(/터빈|포기|폭기/.test(s) && (m=s.match(/([\d.]+)\s*kg\s*[·.\-]?\s*O\s*[2₂]/i))){ const e=mk("aer","포기장치"); e.cap={v:num(m[1]),unit:"kgO₂/h",raw:s.slice(0,60)}; const d=s.match(/[ØΦφ∅]\s*([\d,]+)\s*mm/); if(d) e.dia=num(d[1]); const q=s.match(/(\d+)\s*set/i); if(q) e.qty={"1":q[1]}; e.tag=e.tag||tagAt(i); e.page=pg; }
       if(/감속기|모터/.test(s) && !/윈치/.test(s) && (m=s.match(/([\d.]+)\s*kW/i))){ const e=mk("aer","포기장치"); e.kw={v:num(m[1]),label:"동력",raw:s.slice(0,60)}; e.page=pg; }
-      if(/디\s*[켄캔]\s*터|배출\s*장치|Decanter/i.test(s) && (m=s.match(/([\d.]+)\s*(?:L|ℓ)\s*\/\s*s(?:ec)?/i))){ const e=mk("dec","처리수배출장치"); e.cap={v:num(m[1]),unit:"L/s",raw:s.slice(0,60)}; const q=s.match(/(\d+)\s*set/i); if(q) e.qty=+q[1]; e.tag=e.tag||tagAt(i); e.page=pg; }
+      if(/디\s*[켄캔]\s*터|배출\s*장치|Decanter/i.test(s) && (m=s.match(/([\d.]+)\s*(?:L|ℓ)\s*\/\s*s(?:ec)?/i))){ const e=mk("dec","처리수배출장치"); e.cap={v:num(m[1]),unit:"L/s",raw:s.slice(0,60)}; const q=s.match(/(\d+)\s*set/i); if(q) e.qty={"1":q[1]}; e.tag=e.tag||tagAt(i); e.page=pg; }
       if(/윈치/.test(s) && (m=s.match(/([\d.]+)\s*kW/i))){ const e=mk("dec","처리수배출장치"); e.kw={v:num(m[1]),label:"동력",raw:s.slice(0,60)}; e.page=pg; }
-      if(/제어반|PLC|인버터/.test([L[i-1],l,L[i+1],L[i+2]].filter(Boolean).map(x=>x.s).join(" ")) && !/현장\s*조작|조작반/.test(s) && (m=s.match(/([\d.]+)\s*m?\s*W\s*[x×*]\s*([\d.]+)\s*m?\s*D\s*[x×*]\s*([\d.]+)\s*m?\s*H/i))){ const e=mk("panel","반응조 제어반"); const f=v=>{ v=num(v); return Math.round(v<10?v*1000:v); }; e.whd=`${f(m[1])} × ${f(m[2])} × ${f(m[3])}`; const q=s.match(/(\d+)\s*면/); if(q) e.qty=+q[1]; e.tag=e.tag||tagAt(i); e.page=pg; }
+      if(/제어반|PLC|인버터/.test([L[i-1],l,L[i+1],L[i+2]].filter(Boolean).map(x=>x.s).join(" ")) && !/현장\s*조작|조작반/.test(s) && (m=s.match(/([\d.]+)\s*m?\s*W\s*[x×*]\s*([\d.]+)\s*m?\s*D\s*[x×*]\s*([\d.]+)\s*m?\s*H/i))){ const e=mk("panel","반응조 제어반"); const f=v=>{ v=num(v); return Math.round(v<10?v*1000:v); }; e.whd=`${f(m[1])} × ${f(m[2])} × ${f(m[3])}`; const q=s.match(/(\d+)\s*면/); if(q) e.qty={"1":q[1]}; e.tag=e.tag||tagAt(i); e.page=pg; }
     }); }
   // DATA SHEET: 산소 전달량 · 적용 동력 · 운전 회전수
   const ds=lines.filter(l=>/DATA\s*SHEET/i.test(l.s)).map(l=>l.page); const dsp=new Set(ds);
@@ -1672,6 +1672,7 @@ function specParseAll(lines){
     if(!e){ R.items.push(s); continue; }
     for(const k of ["cap","kw","qty","whd","tag","rpm","dia"]) if(e[k]==null&&s[k]!=null) e[k]=s[k]; }
   for(const t of ["aer","dec","panel"]) if(!R[t]) R[t]=R.items.find(x=>x.type===t)||null;
+  for(const e of R.items){ e.approval=true; if(e.no&&!/승인도서/.test(e.no)) e.no=`승인도서 ${e.no}`; }   // 검토 기준은 설계시방서 — 승인도서 값은 설계시방서가 없을 때만 씀
   return R;
 }
 
@@ -1773,7 +1774,7 @@ async function ingestFiles(list, hint){
 }
 function applySpecs(list){
   const items=[], facts={}; for(const s of list){ items.push(...s.R.items); for(const [k,v] of Object.entries(s.R.facts||{})) if(!facts[k]) facts[k]=v; }
-  const pick=t=>items.find(e=>e.type===t&&!e.fromTable&&(e.cap||e.kw||e.whd||e.mat))||items.find(e=>e.type===t&&(e.cap||e.kw||e.whd||e.mat))||items.find(e=>e.type===t)||null;
+  const pick=t=>items.find(e=>e.type===t&&!e.fromTable&&!e.approval&&(e.cap||e.kw||e.whd||e.mat))||items.find(e=>e.type===t&&!e.fromTable&&(e.cap||e.kw||e.whd||e.mat))||items.find(e=>e.type===t&&(e.cap||e.kw||e.whd||e.mat))||items.find(e=>e.type===t)||null;
   V9.spec={items, facts, aer:pick("aer"), dec:pick("dec"), panel:pick("panel"), feed:pick("feed"), eff:pick("eff"), tp:pick("tp")};
   const nm=list.map(x=>x.name); V9.specName=nm.length>1?`${nm[0]} 외 ${nm.length-1}개`:nm[0]; ATT.specErr=""; updAtt();
 }
@@ -2394,7 +2395,7 @@ function model(){
     row("tAer","포기장치",D.eqAer); row("tDec","배출장치",D.eqDec); row("tFeed","반응조 공급펌프",D.eqFeed); row("tWas","잉여슬러지 펌프",D.eqWas); row("tEff","처리수 이송(총인 공급) 펌프",D.eqEff); }
   const SP=V9.spec;
   if(SP){ const u=(e,k)=>e&&e[k]?e[k]:null, cv=(e,unit)=>{ const c=u(e,"cap"); if(!c) return null; if(c.unit===unit) return c.v; if(unit==="㎥/min"&&c.unit==="㎥/h") return Math.round(c.v/60*1000)/1000; if(unit==="㎥/min"&&c.unit==="㎥/d") return Math.round(c.v/1440*1000)/1000; return null; };
-    const sx=(e)=>e?`${e.no} ${e.name} (${e.tag})`:"시방서에 없음";
+    const sx=(e)=>e?`${e.no||""} ${e.name}${e.tag?` (${e.tag})`:""}`.trim():"시방서에 없음";
     add("장비 사양 (시방서·도면 기기일람표)","sAerKw","포기장치 동력 (사양)","kW", designKW(), u(SP.aer,"kw")?SP.aer.kw.v:null,{xsrc:"웹앱 설계 소요동력",dnote:SP.aer?`${sx(SP.aer)} ${SP.aer.kw?SP.aer.kw.label:""}${SP.aer.kwNote?" · "+SP.aer.kwNote:""}`:"",cmp:"ge"});
     add("장비 사양 (시방서·도면 기기일람표)","sAerO2","포기장치 용량 (사양)","kgO₂/h", val(X.o2), SP.aer&&SP.aer.cap&&SP.aer.cap.unit==="kgO₂/h"?SP.aer.cap.v:null,{xsrc:"계산서 최대",dnote:SP.aer?sx(SP.aer):"",cmp:"ge"});
     add("장비 사양 (시방서·도면 기기일람표)","sDecQ","배출장치 용량 (사양)","L/s", val(X.qin), SP.dec&&SP.dec.cap&&SP.dec.cap.unit==="L/s"?SP.dec.cap.v:null,{xsrc:"계산서 QIN",dnote:SP.dec?sx(SP.dec):"",cmp:"ge"});
@@ -2485,7 +2486,7 @@ function planLayout(W,L,nT){
 }
 function designKW(){ const t=($("powerOut")?.innerText||""); const m=t.match(/설계 소요동력[\s\S]*?([\d.,]+)\s*kW/); return m? parseFloat(m[1].replace(/,/g,"")) : null; }
 function hoistName(s){ return String(s||"").replace(/(호이스트(?:\s*[A-Z](?![가-힣]))?).*$/,"$1"); }
-function srcL(e){ return e&&e.fromTable?"도면 기기일람표":"시방서"; }
+function srcL(e){ return e&&(e.approval||e.src&&/승인도서/.test(e.src))?"승인도서":e&&e.fromTable?"도면 기기일람표":"시방서"; }
 function capTxt(e){ return e&&e.cap?`${e.cap.v.toLocaleString()} ${e.cap.unit}${e.head?` × H${e.head}m`:""}`:""; }
 function fmtQty(e){ if(!e||!e.qty) return ""; const ks=Object.keys(e.qty).sort(); return ks.length>1? ks.map(k=>`${k}단계 ${e.qty[k]}`).join(" / ") : `수량 ${e.qty[ks[0]]}`; }
 function qtyNow(e){ if(!e||!e.qty) return null; const q=e.qty["1"]??Object.values(e.qty)[0]; const m=String(q||"").match(/^(\d+)(?:\((\d+)\))?$/); return m?{n:+m[1],spare:m[2]?+m[2]:0,raw:q}:null; }
@@ -2941,7 +2942,7 @@ async function makeXlsx(){
 </style>
 <script>
 (function(){
-  const ver='12.3.2';
+  const ver='12.3.3';
   const desk = location.protocol==='app:';
   const h1=document.querySelector('h1'); if(!h1) return;
   const b=document.createElement('button'); b.id='updBtn'; b.textContent='⟳ 업데이트 (현재 v'+ver+')';
