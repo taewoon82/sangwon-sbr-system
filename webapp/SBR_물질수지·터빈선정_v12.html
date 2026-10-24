@@ -236,7 +236,7 @@ button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 <header>
   <div class="hbar">
     <div class="hbar-title">
-      <h1 id="appTitle">SBR 반응조 물질수지 · 표면포기기 터빈 선정 <small style="font-size:.55em;opacity:.7">v12.2.1 · 도면·시방서·압축파일 대조·검토서</small></h1>
+      <h1 id="appTitle">SBR 반응조 물질수지 · 표면포기기 터빈 선정 <small style="font-size:.55em;opacity:.7">v12.2.2 · 도면·시방서·압축파일 대조·검토서</small></h1>
       <p>용량계산서 PDF를 불러오면 칸이 자동으로 채워집니다(초록 칸 = 계산서에서 읽는 항목). 밝은 노란 칸은 계산서에 없어 직접 입력합니다. 유입수질·반응조 조건 → 물질수지(SRT·슬러지·질산화·침전) → 필요산소량(AOR→SOR→COR) → 터빈 규격·동력·토크까지 이어서 계산합니다. COR을 용량계산서 값으로 직접 넣는 방식도 그대로 쓸 수 있습니다.</p>
     </div>
     <div class="hbar-meta">
@@ -1978,6 +1978,8 @@ function reviewJudge(c, ctx){
   if(has("D56") && blank(c.G56)) put(56,null, c.D56==="있음"?null:"도면에서 반응조 상부 호이스트를 찾지 못함 — 유지관리 계획 확인");
   // 시방서·전원 자료가 비어 수식이 판정을 못 내는 칸
   if(blank(V1.D53) && isNum(val("D51"))) put(53,"검토",`시방서 동력 값 없음 — 도면 ${fx.f0x(val("D51"))}kW만 확인됨, 시방서 대조 필요`);
+  if(blank(V1.D53) && !isNum(val("D51")) && isNum(val("D52"))) put(53,"검토",`도면에 동력 표기 없음 — 시방서 ${fx.f0x(val("D52"))}kW만 확인됨, 기기일람표 대조 필요`);
+  if(blank(V1.D75) && isNum(val("D52")) && isNum(val("D60")) && isNum(val("D13"))){ const ld=(val("D52")+val("D60"))*val("D13"); put(75,"검토",`도면 동력 없음 — 시방서 기준 (${fx.f0x(val("D52"))}+${fx.f0x(val("D60"))})×${val("D13")} = ${fx.f0x(ld)}kW, 1차 전원 용량 확인`); }
   if(isNum(V1.D75) && blank(V1.F75) && !isNum(val("D74"))) put(75,"검토",`동력부하 ${fx.f0x(V1.D75)}kW — 도면에서 1차 전원 용량을 찾지 못함, 전기 도면 확인`);
   if(has("H69") && blank(c.G69)) put(69,null,`${c.H69} — 인버터·PLC 이중화·LOP 면수는 시방서·제어반 도면 확인`);
   // 자동 판정이 불가능한 항목: 판정은 비워 두고(=담당자 확인) 확인할 내용을 적어 둠
@@ -2758,7 +2760,7 @@ async function makeXlsx(){
 </style>
 <script>
 (function(){
-  const ver='12.2.1';
+  const ver='12.2.2';
   const desk = location.protocol==='app:';
   const h1=document.querySelector('h1'); if(!h1) return;
   const b=document.createElement('button'); b.id='updBtn'; b.textContent='⟳ 업데이트 (현재 v'+ver+')';

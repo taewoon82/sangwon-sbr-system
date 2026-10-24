@@ -75,6 +75,8 @@ function reviewJudge(c, ctx){
   if(has("D56") && blank(c.G56)) put(56,null, c.D56==="있음"?null:"도면에서 반응조 상부 호이스트를 찾지 못함 — 유지관리 계획 확인");
   // 시방서·전원 자료가 비어 수식이 판정을 못 내는 칸
   if(blank(V1.D53) && isNum(val("D51"))) put(53,"검토",`시방서 동력 값 없음 — 도면 ${fx.f0x(val("D51"))}kW만 확인됨, 시방서 대조 필요`);
+  if(blank(V1.D53) && !isNum(val("D51")) && isNum(val("D52"))) put(53,"검토",`도면에 동력 표기 없음 — 시방서 ${fx.f0x(val("D52"))}kW만 확인됨, 기기일람표 대조 필요`);
+  if(blank(V1.D75) && isNum(val("D52")) && isNum(val("D60")) && isNum(val("D13"))){ const ld=(val("D52")+val("D60"))*val("D13"); put(75,"검토",`도면 동력 없음 — 시방서 기준 (${fx.f0x(val("D52"))}+${fx.f0x(val("D60"))})×${val("D13")} = ${fx.f0x(ld)}kW, 1차 전원 용량 확인`); }
   if(isNum(V1.D75) && blank(V1.F75) && !isNum(val("D74"))) put(75,"검토",`동력부하 ${fx.f0x(V1.D75)}kW — 도면에서 1차 전원 용량을 찾지 못함, 전기 도면 확인`);
   if(has("H69") && blank(c.G69)) put(69,null,`${c.H69} — 인버터·PLC 이중화·LOP 면수는 시방서·제어반 도면 확인`);
   // 자동 판정이 불가능한 항목: 판정은 비워 두고(=담당자 확인) 확인할 내용을 적어 둠

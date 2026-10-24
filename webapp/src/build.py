@@ -32,7 +32,7 @@ assert anchor in out, 'COR anchor'
 out=out.replace(anchor, anchor+'\n  if(R.glob.delta==null && R.ref.COR && R.ref.SOR && R.glob.ta){ const d=R.ref.COR[0]*R.glob.ta/R.ref.SOR[0]; if(isFinite(d)&&d>0.8&&d<1.6){ R.glob.delta=Math.round(d*100)/100; R.src.delta=R.src.ta; R.deltaInferred=true; } }')
 out=out.replace('<title>물질수지·터빈 선정 (PDF 자동입력)</title>','<title>물질수지·터빈 선정 v12 (도면·시방서 대조·검토서)</title>')
 out=out.replace('>SBR 반응조 물질수지 · 표면포기기 터빈 선정</h1>','>SBR 반응조 물질수지 · 표면포기기 터빈 선정 <small style="font-size:.55em;opacity:.7">v12 · 도면·시방서·압축파일 대조·검토서</small></h1>')
-APP_VER='12.2.1'
+APP_VER='12.2.2'
 out=out.replace('v12 · 도면·시방서·압축파일 대조·검토서</small></h1>','v'+APP_VER+' · 도면·시방서·압축파일 대조·검토서</small></h1>')
 PRINTFIX = """<style>
 @media print{
