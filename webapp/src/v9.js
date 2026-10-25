@@ -594,6 +594,7 @@ async function makeXlsx(){
     const cells={"검토서":c}; if(proj){ for(const sh of ["기술제안서","설계","시공","시운전"]) cells[sh]={A3:"프로젝트 명 : "+proj}; }
     // 판정·검토의견 채우기 → 양식 수식 계산값 (미리보기·뷰어에서도 보이게)
     try{ elRefresh(); elecFill(c, V9.elec); }catch(e){ console.warn("전기도면 반영 오류", e); }
+    try{ elecLoadsFill(c, V9.elec); }catch(e){ console.warn("전기 동력 대조 오류", e); }
     try{ (V9.elecPdf||[]).forEach(sh=>tpAdd(sh.name+"#"+(sh.page||""), elRows(sh).map(x=>x.s))); V9.dnote=designNotesFill(c); }catch(e){ console.warn("공종별 표기 찾기 오류", e); }
     try{ reviewJudge(c, {rows, X, SP:V9.spec, D, designKW:designKW()}); }catch(e){ console.warn("판정 작성 오류", e); }
     let cache={}; try{ cache={"검토서": tplEval(c)}; }catch(e){ console.warn("수식 계산 오류", e); }

@@ -146,3 +146,50 @@ function designNotesFill(c){
   for(const [row,v] of Object.entries(N)) put(+row, `도면 표기 있음: ${v.sample.map(s=>`‘${s.slice(0,40)}’`).join(", ")} (${v.srcs.slice(0,2).join(", ")}${v.srcs.length>2?` 외 ${v.srcs.length-2}`:""}) — 규격·위치 확인`);
   const miss=DN_RULES.filter(r=>!N[r.row]).map(r=>r.key); return {found:N, miss};
 }
+
+// ===== 전기도면 기기별 동력: 기기번호 아래(또는 같은 열 '용량 kW' 줄)의 kW =====
+function elecLoad(sheets, tag){
+  if(!tag) return null; const base=String(tag).replace(/\s/g,"").replace(/[A-Z](?:[\/~,][A-Z])*$/,"").replace(/[-–—]/g,"-");
+  if(base.length<3) return null; const re=new RegExp("(?:^|[^0-9A-Z])(?:LOP-|MOP-)?"+base.replace(/-/g,"[-–—]?")+"(?![0-9])");
+  const cands=[];
+  for(const sh of sheets){ const pri=/단선|결선|MCC|부하/i.test(sh.title||"")?0:1; const numNote=sh.items.some(i=>/숫자\s*표기|부하\s*용량\s*\(?kW/i.test(i.s));
+    for(const sw of [false,true]){ const T=i=>sw?{x:-i.y,y:i.x,h:i.h,s:i.s}:i; const IT=sh.items.map(T);
+      for(const it of IT){ const s=it.s.replace(/\s/g,""); if(!re.test(" "+s) || /^LOP|^MOP/.test(s)) continue; const h=it.h||5;
+        const lbl=IT.filter(j=>/[가-힣]/.test(j.s) && Math.abs(j.x-it.x)<4*h && Math.abs(j.y-it.y)<7*h).map(j=>j.s).join("").replace(/\s/g,"");
+        // ① 바로 아래 '3ø 380V 5.5kW' 형식
+        const kwT=IT.filter(j=>/\d\s*kW/i.test(j.s) && Math.abs(j.x-it.x)<8*h && j.y>it.y-0.5*h && j.y<it.y+12*h).sort((a,b)=>a.y-b.y)[0];
+        if(kwT){ const m=kwT.s.match(/(\d{1,3}(?:\.\d{1,2})?)\s*kW/i); if(m){ cands.push({kw:+m[1], pri, ref:sh.name+(sh.page?` p.${sh.page}`:""), how:"표기", lbl}); continue; } }
+        // ③ 단선결선도에 '숫자표기는 부하용량(kW)' 주기가 있으면 기기번호 바로 옆 숫자
+        if(numNote){ const v=IT.filter(j=>/^\d{1,3}(?:\.\d{1,2})?$/.test(j.s.trim()) && Math.hypot(j.x-it.x,(j.y-it.y)*1.5)<7*h).sort((a,b)=>Math.hypot(a.x-it.x,a.y-it.y)-Math.hypot(b.x-it.x,b.y-it.y))[0];
+          if(v && +v.s>0 && +v.s<200){ cands.push({kw:+v.s.trim(), pri, ref:sh.name+(sh.page?` p.${sh.page}`:""), how:"단선도 숫자", lbl}); continue; } }
+        // ② 부하표: 같은 열의 숫자 중, 그 줄 왼쪽 머리칸이 '용량'·'kW'
+        const nums=IT.filter(j=>/^\d{1,3}(?:\.\d{1,2})?$/.test(j.s.trim()) && Math.abs(j.x-it.x)<3.5*h && j.y>it.y && j.y<it.y+20*h).sort((a,b)=>a.y-b.y);
+        for(const v of nums){ const rowL=IT.filter(j=>Math.abs(j.y-v.y)<0.9*h && j.x<it.x-6*h).map(j=>j.s).join(" "); const hdr=/kW|용\s*량|부하\s*용량/i.test(rowL)||(/용/.test(rowL)&&!/수/.test(rowL)); if(hdr){ cands.push({kw:+v.s.trim(), pri, ref:sh.name+(sh.page?` p.${sh.page}`:""), how:"부하표", lbl}); break; } }
+      } } }
+  if(!cands.length) return null; cands.sort((a,b)=>a.pri-b.pri); const c0=cands[0];
+  const same=cands.filter(c=>c.kw===c0.kw).length; return {...c0, tag, n:cands.length, agree:same};
+}
+function elLoadTags(){ const T={}; const sp=V9.spec||{}; const ds=(V9.drawSpec&&V9.drawSpec.R&&V9.drawSpec.R.items)||[]; const pm=(V9.dwg&&V9.dwg.pumps)||{};
+  for(const t of ["feed","eff","aer","dec","panel"]){ T[t]=(ds.find(e=>e.type===t)||{}).tag || (sp[t]&&sp[t].tag) || (pm[t]&&pm[t].code) || null; }
+  return T; }
+function elecLoadsFill(c, E){
+  if(!E) return; const sheets=[...(V9.elecPdf||[]), ...(V9.elecDwg||[])]; if(!sheets.length) return;
+  const T=elLoadTags(), L={}; for(const [k,t] of Object.entries(T)) L[k]=elecLoad(sheets,t);
+  // 전기도면에서 같은 번호가 '공법제어반'이면 포기장치가 아니라 제어반 부하로 봄
+  for(const k of ["aer","dec"]) if(L[k] && /제어반|공법/.test(L[k].lbl||"")){ if(!L.panel) L.panel={...L[k], tag:L[k].tag}; L[k]=null; }
+  E.loads=L;
+  const app=(r,g)=>{ const o=c["G"+r]; c["G"+r]=(o==null||o==="")?g:(String(o).includes(g.slice(0,12))?o:`${o} / ${g}`); };
+  const n=v=>typeof v==="number"&&isFinite(v);
+  const cmp=(r,mechKW,ld,label)=>{ if(!ld) return; const t=`전기도면 ${ld.tag} ${ld.kw}kW (${ld.ref})`;
+    if(n(mechKW)){ if(Math.abs(mechKW-ld.kw)<=Math.max(0.05,mechKW*0.01)) app(r,`${t} = 기계 ${mechKW}kW 일치`);
+      else { app(r,`기계 ${mechKW}kW / ${t} — 불일치`); c["F"+r]="부적합"; } }
+    else app(r,t); };
+  cmp(31, n(c.D31)?c.D31:null, L.feed, "공급펌프");
+  cmp(51, n(c.D51)?c.D51:null, L.aer, "포기장치");
+  cmp(60, n(c.D60)?c.D60:null, L.dec, "전동윈치");
+  if(L.eff){ app(94, `총인 공급펌프 ${L.eff.tag} 전기도면 ${L.eff.kw}kW (${L.eff.ref})`); }
+  // 포기장치가 공법제어반을 거쳐 공급되면 제어반 부하 = (포기 + 윈치) × 지수 와 대조
+  if(L.panel && !L.aer){ const a=n(c.D51)?c.D51:n(c.D52)?c.D52:null, w=n(c.D60)?c.D60:0, N=n(c.D13)?c.D13:1;
+    if(a!=null){ const sum=Math.round((a+w)*N*100)/100; const ok=L.panel.kw>=sum*0.98 && L.panel.kw<=sum*1.25;
+      app(53, `전기도면 공법제어반 ${L.panel.tag} ${L.panel.kw}kW ${ok?"≈":"≠"} (포기 ${a}+윈치 ${w})×${N} = ${sum}kW${ok?"":" — 확인 필요"} (${L.panel.ref})`); if(!ok && (c.F53==null||c.F53==="")) c.F53="검토"; } }
+}
