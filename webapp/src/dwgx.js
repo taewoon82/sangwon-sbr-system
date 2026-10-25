@@ -53,7 +53,7 @@ function dwgExtract(entities, blockRecords){
   const levels = T.map(t=>({...t,
     hwl:EL(/(?:H|D)\.?\s*W\.?\s*L\.?\s*\(?\+?\)?\s*(\d+\.\d+)/i,t.s),
     lwl:EL(/L\.?\s*W\.?\s*L\.?\s*\(?\+?\)?\s*(\d+\.\d+)/i,t.s),
-    el: /^\s*(E\.?\s*L|F\.?\s*L|FGL)\.?\s*\(?\+?\)?\s*\d/i.test(t.s)? EL(/(\d+\.\d+)/,t.s):null,
+    el: /^\s*(E\.?\s*L|F\.?\s*L)\.?\s*\(?\+?\)?\s*\d/i.test(t.s)? EL(/(\d+\.\d+)/,t.s):null,
     bop:EL(/BOP\s*\(?\+?\)?\s*(\d+\.\d+)/i,t.s)}));
 
   function tank(labelRe, opt={}){

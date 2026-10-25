@@ -94,7 +94,7 @@ function model(){
   V9.lv.f=f;
   add("처리수조","efW","가로 W","m",val(X.efW), V9.pick.efW ?? pfW.v,{cands:pfW.cands});
   add("처리수조","efL","세로 L","m",val(X.efL), V9.pick.efL ?? pfL.v,{cands:pfL.cands});
-  add("처리수조","efHe","유효수심 (HWL − 바닥)","m",val(X.efHe), f&&f.hwl!=null&&f.bottom!=null&&(f.matched||!(val(X.efHe)>0))?lv(f.hwl,f.bottom):null,{dnote:f&&f.hwl!=null?`HWL EL.${f.hwl} − 바닥 EL.${f.bottom}`:""});
+  add("처리수조","efHe","유효수심 (HWL − 바닥)","m",val(X.efHe), f&&f.varMode? lv(f.hwl,f.lwl) : f&&f.hwl!=null&&f.bottom!=null&&(f.matched||!(val(X.efHe)>0))?lv(f.hwl,f.bottom):null,{dnote:f&&f.varMode?`계산서 유효수심 = HWL−LWL: HWL EL.${f.hwl} − LWL EL.${f.lwl}${f.bottom!=null?` (바닥 EL.${f.bottom}까지 ${lv(f.hwl,f.bottom)} m)`:""}`: f&&f.hwl!=null?`HWL EL.${f.hwl} − 바닥 EL.${f.bottom}`:""});
   add("처리수조","efN","지수","지",val(X.efN),null);
   const sz=($("hSize")?.textContent||"").match(/(\d{3,4})/);
   add("포기장치 · 배출장치","turb","포기장치 터빈 (웹앱 선정)","Ø mm", sz?+sz[1]:null, null,{dtxt:D&&D.aerator?`${D.aerator.code} ${D.aerator.name}`:"", xsrc:"웹앱 선정",noCmp:1});
@@ -122,7 +122,7 @@ function model(){
     add("장비 사양 (시방서·도면 기기일람표)","sFeedQ","공급펌프 용량 (사양)","㎥/min", null, cv(SP.feed,"㎥/min"),{dnote:sx(SP.feed),noCmp:1});
     add("장비 사양 (시방서·도면 기기일람표)","sFeedKw","공급펌프 동력 (사양)","kW", null, u(SP.feed,"kw")?SP.feed.kw.v:null,{noCmp:1});
     if(SP.panel) add("장비 사양 (시방서·도면 기기일람표)","sPanel","공법(반응조) 제어반 (사양)","",null,null,{noCmp:1,dtxt:[SP.panel.no+" "+SP.panel.name, SP.panel.whd, SP.panel.mat, SP.panel.loc].filter(Boolean).join(" · ")});
-    add("장비 사양 (시방서·도면 기기일람표)","sTp","총인설비 처리용량 (사양)","㎥/d", val(X.decQ)??(num("q_0")||null), SP.tp&&SP.tp.cap&&SP.tp.cap.unit==="㎥/d"?SP.tp.cap.v:null,{xsrc:val(X.decQ)!=null?"처리수량(배출 대상)":"설계유량",dnote:SP.tp?sx(SP.tp):"",cmp:"ge"});
+    add("장비 사양 (시방서·도면 기기일람표)","sTp","총인설비 처리용량 (사양)","㎥/d", (typeof X.cap==="number"?X.cap:val(X.cap))??val(X.decQ)??(num("q_0")||null), SP.tp&&SP.tp.cap&&SP.tp.cap.unit==="㎥/d"?SP.tp.cap.v:null,{xsrc:(typeof X.cap==="number"||val(X.cap)!=null)?"시설용량(설계용량)":val(X.decQ)!=null?"처리수량(배출 대상)":"설계유량",dnote:SP.tp?sx(SP.tp):"",cmp:"ge"});
   }
   const P=planLayout(A0(rows,"W"),A0(rows,"L"),A0(rows,"N"));
   if(P){ const inside=P.cols.filter(c=>c.inside).length;
@@ -138,6 +138,9 @@ function model(){
     else if(r.noCmp) r.st="";
     else r.st = r.xls!=null? "계산서만" : r.dwg!=null? "도면만" : "";
     if(r.key==="N" && r.st==="불일치" && V9.dwg && V9.dwg.eqAer && qtyAll(V9.dwg.eqAer)===r.dwg && (qtyNow(V9.dwg.eqAer)||{}).n===r.xls){ r.st="단계"; r.dnote=`도면 ${r.dwg}지 = 기기목록표 포기장치 ${fmtQty(V9.dwg.eqAer)} · 금회(1단계) ${r.xls}지`; }
+    if((r.key==="eqN"||r.key==="efN") && r.st==="불일치" && V9.dwg && V9.dwg.ocrOnly && r.dwg<r.xls){ r.st="계산서만"; r.dnote="그림 PDF 단면도에서는 일부 지만 보여 도면 지수 확인 불가"; r.dwg=null; }
+    if(r.key==="N" && r.st==="불일치" && V9.dwg && V9.dwg.ocrOnly && r.dwg<r.xls){ const a=V9.dwg.eqAer; const n=a?qtyAll(a):null;
+      if(n===r.xls){ r.st="일치"; r.dnote=`기계설비 목록 포기장치 ${n}대 = 계산서 ${r.xls}지 (그림 PDF 단면도에는 일부 지만 보임)`; r.dwg=n; } else { r.st="계산서만"; r.dnote="그림 PDF 단면도에서는 일부 지만 보여 도면 지수 확인 불가"; r.dwg=null; } }
     if(r.key==="N" && r.st==="불일치" && V9.spec && V9.spec.aer && V9.spec.aer.qtyAll && r.dwg===V9.spec.aer.qtyAll && r.xls===V9.spec.aer.qty){ r.st="단계"; r.dnote=`도면 ${r.dwg}지 = ${V9.spec.aer.phases}단계 전체 · 금회 ${r.xls}지 (시방서 수량)`; }
   }
   return rows;
@@ -152,7 +155,9 @@ function levelPick(t, mode, He){
     if(best){ const b=C.el.filter(e=>e.v<best.lwl).sort((a,c)=>a.d-c.d)[0]; best.bottom=b?b.v:null; }
     if(!best){ for(const h of C.hwl) for(const b of C.el){ if(Math.abs(h.v-b.v-He)<=0.02){ const sc=h.d+b.d; if(!best||sc<best.sc) best={sc,hwl:h.v,bottom:b.v,lwl:null,noLwl:true,lwlSeen:C.lwl.length>0}; } } } }
   else { for(const h of C.hwl) for(const b of C.el){ if(Math.abs(h.v-b.v-He)<=0.02){ const sc=h.d+b.d; if(!best||sc<best.sc) best={sc,hwl:h.v,bottom:b.v}; } }
-    if(best){ const l=C.lwl.filter(x=>x.v>best.bottom&&x.v<best.hwl).sort((a,c)=>a.d-c.d)[0]; best.lwl=l?l.v:null; } }
+    if(best){ const l=C.lwl.filter(x=>x.v>best.bottom&&x.v<best.hwl).sort((a,c)=>a.d-c.d)[0]; best.lwl=l?l.v:null; }
+    if(!best && mode==="ef"){ for(const h of C.hwl) for(const l of C.lwl){ if(Math.abs(h.v-l.v-He)<=0.02){ const sc=h.d+l.d; if(!best||sc<best.sc) best={sc,hwl:h.v,lwl:l.v,varMode:true}; } }   // 계산서 유효수심이 HWL−LWL(변동수심)인 경우
+      if(best){ const b=C.el.filter(e=>e.v<=best.lwl).sort((a,c)=>a.d-c.d)[0]; best.bottom=b?b.v:null; } } }
   if(!best) return base;
   const tops=C.el.filter(e=>e.v>best.hwl+0.05&&e.v-best.hwl<3.5).sort((a,c)=>a.d-c.d);
   best.top = (t.top!=null&&t.top>best.hwl&&t.top-best.hwl<3.5)? t.top : (tops[0]?tops[0].v:null);
@@ -284,7 +289,7 @@ async function loadDwgs(files, pdfDraws){ pdfDraws=pdfDraws||[];
         if(!dwg) throw new Error("읽지 못함 — 오토캐드에서 DXF로 저장 후 다시");
         const db=lib.convert(dwg);
         const ents=dwgExpand(db.entities||[], (db.tables&&db.tables.BLOCK_RECORD&&db.tables.BLOCK_RECORD.entries)||[], 3);
-        { const ti=elTextItems(ents); const sc=elScore(ti.map(t=>t.s)); if(sc>=40 && sc>ti.length*0.02){ elecD.push({name:file.name, items:ti}); elecN.push(file.name); continue; } }   // 전기·계측 도면은 따로
+        { const ti=elTextItems(ents); tpAdd(file.name, ti.map(t=>t.s)); const sc=elScore(ti.map(t=>t.s)); if(sc>=40 && sc>ti.length*0.02){ elecD.push({name:file.name, items:ti}); elecN.push(file.name); continue; } }   // 전기·계측 도면은 따로
         if(i>0){ const seen=new WeakSet(); for(const e of ents) shiftEnt(e, i*1e9, seen); }
         for(const e of ents) all.push(e);
         ok.push(file.name);
@@ -299,6 +304,8 @@ async function loadDwgs(files, pdfDraws){ pdfDraws=pdfDraws||[];
       try{ const say=t=>{ st.innerHTML=`<b>${h(pf.name)}</b> — ${h(t)}`; };
         const t0=Date.now(); const r=await ocrPdfDrawing(pf, say);
         for(const e of r.texts) all.push(e);
+        tpAdd(pf.name, [...r.texts.map(e=>e.text), ...(r.elecSheets||[]).flatMap(sh=>elRows(sh).map(x=>x.s))]);
+        if(r.elecSheets&&r.elecSheets.length){ V9.elecPdf=[...(V9.elecPdf||[]).filter(x=>x.name!==pf.name), ...r.elecSheets]; V9.elecNames=[...new Set([...(V9.elecNames||[]), pf.name])]; elRefresh(); }
         if(r.equip.items.length){ const src={name:`${pf.name} 기기일람표`, R:{items:r.equip.items, facts:{}}}; V9.drawSpec=src; V9.drawEquipQty=r.equip.qtyRows; }
         ok.push(pf.name); ocrNote.push(`${pf.name}: ${r.N}쪽 중 기기일람표 ${r.tablePages.length?r.tablePages.join("·")+"쪽":"없음"}, 단면도 ${r.secPages.length?r.secPages.join("·")+"쪽":"없음"} 글자 인식 (${Math.round((Date.now()-t0)/1000)}초)`);
       }catch(e){ bad.push(`${pf.name}: ${e.message||e}`); }
@@ -311,6 +318,7 @@ async function loadDwgs(files, pdfDraws){ pdfDraws=pdfDraws||[];
     if(V9.drawSpec){ const it=V9.drawSpec.R.items; R.pumps=R.pumps||{}; for(const t of ["feed","eff"]){ const e=it.find(x=>x.type===t); if(e) R.pumps[t]={code:e.tag, name:e.name, d:0, n:1, others:[], fromTable:true}; } }
     if(!R.sbr.labels && !V9.drawSpec && !pdfDraws.length) throw new Error(`도면 ${ok.length}장 어디에서도 ‘SBR 반응조’ 명칭을 찾지 못했습니다`);
     if(elecD.length) R.ocrNote=[...(R.ocrNote||[]), `전기·계측 도면 ${elecD.length}장: ${elSummary(V9.elec)}`];
+    R.ocrOnly = ok.length>0 && ok.every(n=>/\.pdf$/i.test(n));
     V9.dwg=R; V9.dwgNames=ok; V9.dwgName=ok.length>1?`${ok[0]} 외 ${ok.length-1}장`:ok[0]; V9.pick={}; V9.over={}; ATT.dwgBusy=false;
     st.innerHTML=`설계도면 ${ok.length}장 해석 완료 (${ok.map(h).join(", ")}). 문자 ${R.nText.toLocaleString()}개 · 치수 ${R.nDim.toLocaleString()}개 · ‘SBR 반응조’ 명칭 ${R.sbr.labels}곳${R.equipTable&&R.equipTable.length?` · 기기목록표 ${R.equipTable.length}개 기기`:""}.${R.ocrNote&&R.ocrNote.length?`<br><small>글자 인식: ${R.ocrNote.map(h).join(" / ")} — 인식 결과는 대조표에서 꼭 확인하세요.</small>`:""}`+(bad.length?`<br><span class="miss">못 읽은 도면: ${bad.map(h).join(" / ")}</span>`:"");
     renderCmp9();
@@ -502,7 +510,7 @@ async function makeXlsx(){
     set("C5",[date,$("v9reviewer").value.trim()].filter(Boolean).join(" · ")); set("C6",`SBR (표면포기기 ${($("hSize").textContent||"").trim()})`);
     set("D11",X.cap); set("D12",num("q_0")||null); set("D13",A(rows,"N")); set("D14",num("nc")||null);
     set("D16",num("hrtT")||null); set("D17",state.pdfRef&&state.pdfRef.SRT?r3(state.pdfRef.SRT[0]):null);
-    set("D22",A(rows,"eqW")); set("D23",A(rows,"eqL")); set("D24",A(rows,"eqHe")); set("D25",A(rows,"eqN"));
+    set("D22",A(rows,"eqW")); set("D23",A(rows,"eqL")); set("D24",A(rows,"eqHe")); if(A(rows,"eqW")||A(rows,"eqL")||A(rows,"eqHe")) set("D25",A(rows,"eqN"));   // 계산서에 유량조정조가 없으면(기존 시설) 지수만 따로 쓰지 않음
     if(e&&e.hwl!=null&&e.matched){ set("G28", e.noLwl?`도면 HWL(D.W.L) EL.${e.hwl} − 바닥 EL.${e.bottom} = ${n2(e.hwl-e.bottom)} m (계산서 유효수심과 비교) · ${e.lwlSeen?"도면 LWL 표기와 계산서 수심이 맞지 않음 → 펌프 정지수위 확인":"도면에 LWL 표기 없음 → 펌프 정지수위 확인"}`:`도면 HWL EL.${e.hwl} / LWL EL.${e.lwl} → 변동수심 ${n2(e.hwl-e.lwl)} m`); }
     set("D37",A(rows,"W")); set("D38",A(rows,"L")); set("D39",A(rows,"Lw")); set("D40",A(rows,"He")); set("D41",A(rows,"Fb"));
     if(s&&s.top!=null) set("G41",`도면 상부 EL.${s.top} − HWL EL.${s.hwl}`);
@@ -586,6 +594,7 @@ async function makeXlsx(){
     const cells={"검토서":c}; if(proj){ for(const sh of ["기술제안서","설계","시공","시운전"]) cells[sh]={A3:"프로젝트 명 : "+proj}; }
     // 판정·검토의견 채우기 → 양식 수식 계산값 (미리보기·뷰어에서도 보이게)
     try{ elRefresh(); elecFill(c, V9.elec); }catch(e){ console.warn("전기도면 반영 오류", e); }
+    try{ (V9.elecPdf||[]).forEach(sh=>tpAdd(sh.name+"#"+(sh.page||""), elRows(sh).map(x=>x.s))); V9.dnote=designNotesFill(c); }catch(e){ console.warn("공종별 표기 찾기 오류", e); }
     try{ reviewJudge(c, {rows, X, SP:V9.spec, D, designKW:designKW()}); }catch(e){ console.warn("판정 작성 오류", e); }
     let cache={}; try{ cache={"검토서": tplEval(c)}; }catch(e){ console.warn("수식 계산 오류", e); }
     const tpl=Uint8Array.from(atob(TPL_B64),ch=>ch.charCodeAt(0));
