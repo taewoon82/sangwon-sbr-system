@@ -10,6 +10,10 @@ def patch_tpl(src):
             # 요약: 점검 항목(K=1)만 집계
             for w in ('확인','검토','부적합'):
                 s=s.replace(f'COUNTIF($F$1:$F$105,&quot;{w}&quot;)', f'COUNTIFS($K$1:$K$105,1,$F$1:$F$105,&quot;{w}&quot;)')
+            # 요약에 해당없음 추가 (미작성에서 제외)
+            NA='COUNTIFS($K$1:$K$105,1,$F$1:$F$105,&quot;해당없음&quot;)'
+            s=s.replace('&amp;&quot;  ·  미작성 &quot;&amp;(SUM($K$1:$K$105)', '&amp;&quot;  ·  해당없음 &quot;&amp;'+NA+'&amp;&quot;  ·  미작성 &quot;&amp;(SUM($K$1:$K$105)-'+NA,1)
+            s=s.replace('&quot;확인,검토,부적합&quot;','&quot;확인,검토,부적합,해당없음&quot;')
             # 지적사항 문구: 숫자는 소수 둘째 자리까지
             s=re.sub(r'(?<![A-Z$])D(\d+)&amp;IF\(ISNUMBER\(D\1\)', lambda m: f'IF(ISNUMBER(D{m[1]}),ROUND(D{m[1]},2),D{m[1]})&amp;IF(ISNUMBER(D{m[1]})', s)
             # 판정 칸 서식 통일: 기본 데이터 행(회색 20/21)도 판정을 쓰므로 점검 항목 행과 같은 노란 입력 서식(F 28, G·H 12)으로
@@ -47,7 +51,7 @@ assert anchor in out, 'COR anchor'
 out=out.replace(anchor, anchor+'\n  if(R.glob.delta==null && R.ref.COR && R.ref.SOR && R.glob.ta){ const d=R.ref.COR[0]*R.glob.ta/R.ref.SOR[0]; if(isFinite(d)&&d>0.8&&d<1.6){ R.glob.delta=Math.round(d*100)/100; R.src.delta=R.src.ta; R.deltaInferred=true; } }')
 out=out.replace('<title>물질수지·터빈 선정 (PDF 자동입력)</title>','<title>물질수지·터빈 선정 v12 (도면·시방서 대조·검토서)</title>')
 out=out.replace('>SBR 반응조 물질수지 · 표면포기기 터빈 선정</h1>','>SBR 반응조 물질수지 · 표면포기기 터빈 선정 <small style="font-size:.55em;opacity:.7">v12 · 도면·시방서·압축파일 대조·검토서</small></h1>')
-APP_VER='12.4.1'
+APP_VER='12.4.2'
 out=out.replace('v12 · 도면·시방서·압축파일 대조·검토서</small></h1>','v'+APP_VER+' · 도면·시방서·압축파일 대조·검토서</small></h1>')
 PRINTFIX = """<style>
 @media print{

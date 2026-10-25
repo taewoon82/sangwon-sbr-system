@@ -31,7 +31,9 @@ function reviewJudge(c, ctx){
   if(has("D13")){ const x=R("N"); if(x.st==="단계") put(13,"확인",x.dnote); else if(x.st==="일치") put(13,"확인",`용량계산서 = 도면 (${x.xls}지)`); else if(x.st==="불일치") put(13,"부적합",`용량계산서 ${x.xls}지 / 도면 ${x.dwg}지`); else put(13,"확인","용량계산서 기준값"); }
   put(18,"확인","설계 지침 (사이클당 유입시간 기준)");
   if(has("D15")) put(15,"확인","설계유량 ÷ SET ÷ 사이클 수");
-  // 2. 유량조정조
+  // 2. 유량조정조 — 용량계산서에 유량조정조 항목이 없으면(시설 없음) 해당없음
+  const noEq = X && X.sheet && !(X.eqW||X.eqL||X.eqHe||X.eqVe||X.eqT);
+  if(noEq){ c.D25=""; for(let r=22;r<=28;r++){ c["F"+r]="해당없음"; c["G"+r]= r===22?"용량계산서에 유량조정조 없음 — 해당 없음":"해당 없음"; } }
   cmp(22,"eqW","가로"); cmp(23,"eqL","세로"); cmp(24,"eqHe","수심"); cmp(25,"eqN","지수");
   if(isNum(val("D26"))) put(26,"확인", X.eqVe?`계산서 유효용량 ${n2s(X.eqVe.v)}㎥`:"가로 × 세로 × 수심 × 지수");
   if(isNum(val("D27"))){ const T=X.eqT&&X.eqT.v; if(T) put(27, val("D27")>=T*0.999?"확인":"부적합", `기준 ${T}hr 이상 (용량계산서) — ${fx.f1(val("D27"))}hr`); else put(27,"검토","체류시간 기준값이 계산서에 없음"); }
@@ -129,8 +131,8 @@ function tplEval(c){
     const head=C.split(" (")[0]; const Dt= blank(D)?"": n2s(D)+(isNum(D)&&E?" "+E:"");
     V["J"+r]= head + ((blank(D)||G==="")? (!blank(D)?": "+Dt : (G!==""?": "+G:"")) : ": "+Dt+" / "+G); }
   const C3=g("C3"); V.A1 = blank(C3)? "설계성과품 검토서" : C3+" 설계성과품 검토서";
-  let tot=0, ok=0, rv=0, ng=0; for(let r=1;r<=105;r++){ const k=V["K"+r]; if(isNum(k)) tot+=k; const F=isNum(k)&&k>0?g("F"+r):""; if(F==="확인") ok++; else if(F==="검토") rv++; else if(F==="부적합") ng++; }
-  V.C7=`전체 ${tot}건  ·  확인 ${ok}  ·  검토 ${rv}  ·  부적합 ${ng}  ·  미작성 ${tot-ok-rv-ng}`;
+  let tot=0, ok=0, rv=0, ng=0, na=0; for(let r=1;r<=105;r++){ const k=V["K"+r]; if(isNum(k)) tot+=k; const F=isNum(k)&&k>0?g("F"+r):""; if(F==="확인") ok++; else if(F==="검토") rv++; else if(F==="부적합") ng++; else if(F==="해당없음") na++; }
+  V.C7=`전체 ${tot}건  ·  확인 ${ok}  ·  검토 ${rv}  ·  부적합 ${ng}  ·  해당없음 ${na}  ·  미작성 ${tot-ok-rv-ng-na}`;
   const byI=n=>{ for(let r=1;r<=105;r++) if(V["I"+r]===n) return r; return null; };
   for(let n=1;n<=7;n++){ const r=byI(n); V["A"+(108+n)]= r? `${g("F"+r)} · ${g("B"+r)}` : ""; V["C"+(108+n)]= r? V["J"+r] : ""; }
   if(iMax>8){ V.A116=""; V.C116=`외 ${iMax-7}건은 위 점검표에서 확인`; } else { const r=byI(8); V.A116= r? `${g("F"+r)} · ${g("B"+r)}` : ""; V.C116= r? V["J"+r] : ""; }
