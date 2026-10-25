@@ -1196,7 +1196,10 @@ function save(){ try{ const o={}; allInputs().forEach(e=>{ if(e.id){ o[e.id]=e.v
 function load(){ try{ const o=JSON.parse(localStorage.getItem(KEY)||"null"); if(!o) return false;
   Object.assign(state,o.__state||{}); $("coefBox").open=!!o.__coefOpen; delete o.__state; delete o.__coefOpen;
   const sizeSel=$("size"); if(!sizeSel.options.length){for(const s of SIZES){const op=document.createElement("option");op.value=op.textContent=s;sizeSel.appendChild(op);}}
-  for(const k in o){ const e=$(k); if(e){ e.value=o[k]; if(e.dataset){ delete e.dataset.raw; if(o["__raw_"+k]!=null){ e.dataset.raw=o["__raw_"+k]; e.dataset.shown=e.value; } } } } return true; }catch(e){ return false; } }
+  for(const k in o){ const e=$(k); if(e){ e.value=o[k]; if(e.dataset){ delete e.dataset.raw; if(o["__raw_"+k]!=null){ e.dataset.raw=o["__raw_"+k]; e.dataset.shown=e.value; } } } }
+  // 이전 버전에서 저장된 긴 소수도 표시 자릿수로 (계산은 원래 값)
+  for(const k of PER_KEYS) for(let i=0;i<3;i++){ const e=$(k+"_"+i); if(e && e.dataset.raw==null && e.value!=="") setShown(e,k,e.value); }
+  return true; }catch(e){ return false; } }
 function applyDefaults(blank){
   clearPdfMarks();
   for(const k in DEFAULTS){ const e=$(k); if(e) e.value=DEFAULTS[k]; }
