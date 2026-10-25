@@ -236,7 +236,7 @@ button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 <header>
   <div class="hbar">
     <div class="hbar-title">
-      <h1 id="appTitle">SBR 반응조 물질수지 · 표면포기기 터빈 선정 <small style="font-size:.55em;opacity:.7">v12.4.2 · 도면·시방서·압축파일 대조·검토서</small></h1>
+      <h1 id="appTitle">SBR 반응조 물질수지 · 표면포기기 터빈 선정 <small style="font-size:.55em;opacity:.7">v12.4.3 · 도면·시방서·압축파일 대조·검토서</small></h1>
       <p>용량계산서 PDF를 불러오면 칸이 자동으로 채워집니다(초록 칸 = 계산서에서 읽는 항목). 밝은 노란 칸은 계산서에 없어 직접 입력합니다. 유입수질·반응조 조건 → 물질수지(SRT·슬러지·질산화·침전) → 필요산소량(AOR→SOR→COR) → 터빈 규격·동력·토크까지 이어서 계산합니다. COR을 용량계산서 값으로 직접 넣는 방식도 그대로 쓸 수 있습니다.</p>
     </div>
     <div class="hbar-meta">
@@ -790,7 +790,7 @@ async function importPdf(file){
     const R=calcParse(pages);
     if(!R.lines || !Object.keys(R.per).length){ st.innerHTML=`<span class="miss">이 ${isX?"엑셀":"PDF"}에서 SBR 반응조 계산 항목을 찾지 못했습니다. ${isX?"‘용량계산서’ 시트가 있는 상원 양식인지 확인하세요.":"글자가 이미지로 된(스캔) PDF이거나 다른 양식일 수 있습니다."} 칸은 바꾸지 않았습니다.</span>`; return; }
     clearPdfMarks(); state.srcLabels=isX?pages.map(p=>p.name):null;
-    for(const k of PER_KEYS){ if(R.per[k]) for(let i=0;i<3;i++){ $(k+"_"+i).value=R.per[k][i]; mark(k+"_"+i,R.src[k]); } }
+    for(const k of PER_KEYS){ if(R.per[k]) for(let i=0;i<3;i++){ setShown($(k+"_"+i),k,R.per[k][i]); mark(k+"_"+i,R.src[k]); } }
     for(const k of GLOB_KEYS){
       if(R.glob[k]==null) continue;
       if(k==="temp"){ setTemp(R.glob[k]); if(R.glob.Css==null) $("Css").value=cssStd(R.glob[k]).toFixed(2); }
@@ -877,7 +877,12 @@ function renderCmp(MB){
 }
 
 const $ = id => document.getElementById(id);
-const num = id => { const e=$(id); if(!e) return 0; const v = parseFloat(e.value); return isFinite(v) ? v : 0; };
+// 표시 자릿수: T-P 소수 3자리, α·β·Y 그대로, 나머지 1자리 — 칸에는 반올림 값만 보이고 계산은 원래 값으로 (사용자가 고치면 고친 값)
+const SHOWN_DP = k => /^e?tp$/.test(k) ? 3 : /^(al|be|y)$/.test(k) ? null : 1;
+function setShown(e,k,v){ if(!e) return; const dp=SHOWN_DP(k), n=parseFloat(v);
+  if(dp==null||!isFinite(n)){ e.value=v; delete e.dataset.raw; return; }
+  e.value=String(Math.round(n*10**dp)/10**dp); e.dataset.raw=String(n); e.dataset.shown=e.value; }
+const num = id => { const e=$(id); if(!e) return 0; if(e.dataset&&e.dataset.raw!=null&&e.value===e.dataset.shown){ const r=parseFloat(e.dataset.raw); if(isFinite(r)) return r; } const v = parseFloat(e.value); return isFinite(v) ? v : 0; };
 const f0 = x => isFinite(x) ? Math.round(x).toLocaleString() : "–";
 const f1 = x => isFinite(x) ? x.toFixed(1) : "–";
 const f2 = x => isFinite(x) ? x.toFixed(2) : "–";
@@ -1278,15 +1283,15 @@ function render(){
 
 const KEY="turbine_sizing_v8";
 function allInputs(){ return document.querySelectorAll("input,select"); }
-function save(){ try{ const o={}; allInputs().forEach(e=>{ if(e.id) o[e.id]=e.value; }); o.__state=state; o.__coefOpen=$("coefBox").open; localStorage.setItem(KEY,JSON.stringify(o)); }catch(e){} }
+function save(){ try{ const o={}; allInputs().forEach(e=>{ if(e.id){ o[e.id]=e.value; if(e.dataset.raw!=null&&e.value===e.dataset.shown) o["__raw_"+e.id]=e.dataset.raw; } }); o.__state=state; o.__coefOpen=$("coefBox").open; localStorage.setItem(KEY,JSON.stringify(o)); }catch(e){} }
 function load(){ try{ const o=JSON.parse(localStorage.getItem(KEY)||"null"); if(!o) return false;
   Object.assign(state,o.__state||{}); $("coefBox").open=!!o.__coefOpen; delete o.__state; delete o.__coefOpen;
   const sizeSel=$("size"); if(!sizeSel.options.length){for(const s of SIZES){const op=document.createElement("option");op.value=op.textContent=s;sizeSel.appendChild(op);}}
-  for(const k in o){ const e=$(k); if(e) e.value=o[k]; } return true; }catch(e){ return false; } }
+  for(const k in o){ const e=$(k); if(e){ e.value=o[k]; if(e.dataset){ delete e.dataset.raw; if(o["__raw_"+k]!=null){ e.dataset.raw=o["__raw_"+k]; e.dataset.shown=e.value; } } } } return true; }catch(e){ return false; } }
 function applyDefaults(blank){
   clearPdfMarks();
   for(const k in DEFAULTS){ const e=$(k); if(e) e.value=DEFAULTS[k]; }
-  for(const k in DEF_CASE){ for(let i=0;i<3;i++){ const e=$(k+"_"+i); if(e) e.value = blank && !["al","be","y"].includes(k) ? "" : DEF_CASE[k][i]; } }
+  for(const k in DEF_CASE){ for(let i=0;i<3;i++){ const e=$(k+"_"+i); if(e) delete e.dataset.raw; if(e) e.value = blank && !["al","be","y"].includes(k) ? "" : DEF_CASE[k][i]; } }
   if(blank){ for(const k of ["W","L","T","nTank","corIn","sorIn","siteName","hrtT"]) $(k).value=""; }
   Object.assign(state,{pdfRef:null,pdfName:"",pdfFilled:{},mode:"C",corMode:"mb",o2Override:false,sizeOverride:false,ratedOverride:false,hzOverride:false,corBaselineVol:null});
   if(!$("printDate").value) $("printDate").value=new Date().toISOString().slice(0,10);
@@ -3073,7 +3078,7 @@ async function makeXlsx(){
 </style>
 <script>
 (function(){
-  const ver='12.4.2';
+  const ver='12.4.3';
   const desk = location.protocol==='app:';
   const h1=document.querySelector('h1'); if(!h1) return;
   const b=document.createElement('button'); b.id='updBtn'; b.textContent='⟳ 업데이트 (현재 v'+ver+')';
