@@ -33,7 +33,7 @@ else:
         cr = np.cross(p - c0, q - c0); a = np.linalg.norm(cr, axis=1)
         tc = (p + q + c0) / 3; Sf[i] = cr.sum(0) / 2
         Cf[i] = (tc * a[:, None]).sum(0) / max(a.sum(), 1e-30)
-    nc = own.max() + 1
+    nc = max(own.max(), nei.max()) + 1
     # 부피·중심: 각 면에 대한 피라미드 (근사 중심 = 면중심 평균)
     cnt = np.bincount(own, minlength=nc) + np.bincount(nei, minlength=nc)
     cg = (np.add.reduceat if False else None)
@@ -83,11 +83,11 @@ for t in times:
     ur = (x * U[:, 0] + y * U[:, 1]) / np.maximum(r, 1e-6); ut = (x * U[:, 1] - y * U[:, 0]) / np.maximum(r, 1e-6)
     o = {"time": float(t)}
     k = (z > ZB - 0.09) & (z < ZB - 0.03) & (r < R0)
-    o["Q_in"] = (U[k, 2] * V[k]).sum() / 0.06 * 3600
+    o["Q_in"] = np.average(U[k, 2], weights=V[k]) * np.pi * R0**2 * 3600
     w = V[k] * np.maximum(U[k, 2], 0)
     o["swirl_in"] = (ut[k] / (om * r[k]) * w).sum() / w.sum()      # 흡입부 선회속도/날개속도 (유량가중)
     k2 = (r > 0.70) & (r < 0.76) & (z > ZF) & (z < ZS)
-    o["Q_out"] = (ur[k2] * V[k2]).sum() / 0.06 * 3600
+    o["Q_out"] = np.average(ur[k2], weights=V[k2]) * 2 * np.pi * 0.73 * (ZS - ZF) * 3600
     w2 = V[k2] * np.maximum(ur[k2], 0)
     o["ut_out/tip"] = (ut[k2] * w2).sum() / w2.sum() / (om * R1)
     Mz = 0.0
