@@ -344,10 +344,11 @@ button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
     <div class="grid">
       <div><div class="k">터빈 규격</div><div class="v" id="hSize">–</div></div>
       <div><div class="k">기본 소요동력 <small>여유율 미적용</small></div><div class="v" id="hP">–<small>kW</small></div></div>
-      <div><div class="k">설계 필요토크</div><div class="v" id="hT">–<small>N·m</small></div></div>
+      <div><div class="k">추천 모터 <small>기어드모터 동력</small></div><div class="v" id="hMotor">–</div></div>
       <div><div class="k">정격 / 운전 RPM</div><div class="v" id="hRpm">–</div></div>
       <div><div class="k">운전점 산소전달량</div><div class="v" id="hO2">–<small>kgO₂/h</small></div></div>
       <div><div class="k">적용 COR</div><div class="v" id="hCor">–<small>kgO₂/h</small></div></div>
+      <div><div class="k">설계 필요토크</div><div class="v" id="hT">–<small>N·m</small></div></div>
     </div>
     <div class="basis">
       <div class="basis-h">동력 산정 기준 케이스</div>
@@ -1160,6 +1161,9 @@ function render(){
   // ---- 요약 ----
   $("hSize").textContent=size;
   $("hP").innerHTML=`${f1(P)}<small>kW</small>`; $("hT").innerHTML=`${f0(Tqd)}<small>N·m</small>`;
+  // 추천 모터: 설계 소요동력(여유율 적용) 이상인 표준 기어드모터 중 가장 작은 것 (포기장치용 기어드모터 목록 기준)
+  { const MOTOR_KW=[1.5,2.2,3,4,5.5,7.5,11,15,18.5,22,30,37,45,55,75,90,110]; const mk=MOTOR_KW.find(k=>k>=Pd-1e-9);
+    $("hMotor").innerHTML = !isFinite(Pd)||Pd<=0 ? "–" : mk!=null ? `${mk}<small>kW</small><div class="sub" style="font-size:12px;font-weight:400;opacity:.75">설계 소요동력 ${f1(Pd)} kW 이상</div>` : `<span style="font-size:18px">110 kW 초과</span><div class="sub" style="font-size:12px;font-weight:400;opacity:.75">설계 소요동력 ${f1(Pd)} kW — 별도 선정</div>`; }
   $("hRpm").innerHTML=`${f1(ratedV)} / ${f1(rpm)}<small>rpm</small>`;
   $("hO2").innerHTML=`${f1(o2now)}<small>kgO₂/h</small>`; $("hCor").innerHTML=`${f1(COR)}<small>kgO₂/h</small>`;
   const al=[];
@@ -1185,7 +1189,7 @@ function render(){
   const siteName = $("siteName").value.trim(), printDate = $("printDate").value;
   document.title = (siteName ? siteName+" — " : "") + $("appTitle").textContent;
   $("printTitle").innerHTML = `<div class="t1">${$("appTitle").textContent}${siteName?" · "+siteName:""}</div><div class="t2"><span>규격 ${size}</span><span>COR ${f1(COR)}kgO₂/h (${m==="mb"?CASES[ci]:m==="direct"?"직접":"SOR÷Ta"})</span><span>기본동력 ${f1(P)}kW (설계 ${f1(Pd)})</span><span>필요토크 ${f0(Tqd)}N·m</span><span>${printDate||"-"}</span></div>`;
-  if(!(num("W")>0 && num("T")>0 && [0,1,2].some(i=>num("q_"+i)>0))){ ["hSize","hP","hT","hRpm","hO2","hCor"].forEach(id=>$(id).innerHTML="–"); $("alerts").innerHTML=`<div class="alert warn">용량계산서 PDF를 불러오거나 유입량·반응조 치수를 입력하세요.</div>`; }
+  if(!(num("W")>0 && num("T")>0 && [0,1,2].some(i=>num("q_"+i)>0))){ ["hSize","hP","hT","hRpm","hO2","hCor","hMotor"].forEach(id=>$(id).innerHTML="–"); $("alerts").innerHTML=`<div class="alert warn">용량계산서 PDF를 불러오거나 유입량·반응조 치수를 입력하세요.</div>`; }
   renderCmp(MB);
   save();
 }
