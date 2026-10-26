@@ -15,7 +15,7 @@ faces = [list(map(int, f.split())) for f in re.findall(r"\d+\(([\d ]+)\)", b)[:n
 assert len(faces) == n
 n, b = body("owner"); owner = np.array(b[:b.index(")")].split(), int)
 n2, b = body("neighbour"); nei = np.array(b[:b.index(")")].split(), int)
-nc = owner.max() + 1
+nc = max(owner.max(), nei.max()) + 1
 # 면 중심·면적 벡터 (삼각 분할)
 fc = np.zeros((len(faces), 3)); fa = np.zeros((len(faces), 3))
 for i, f in enumerate(faces):

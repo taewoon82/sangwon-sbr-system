@@ -10,7 +10,7 @@ const CDN = {
 };
 const V9 = { xls:null, xlsName:"", dwg:null, dwgName:"", over:{}, pick:{}, lib:null, mod:null };
 // 십자구조물 표준 치수 (터빈 형식별, m) — 확인된 형식만. 나머지는 1250형 비례 추정
-const CROSS = { 900:{w:2.5,h:1.2,t:0.25,ok:true}, 1250:{w:2.5,h:1.2,t:0.2,ok:true}, 1600:{w:3.0,h:1.5,t:0.25,ok:true}, 2000:{w:3.0,h:1.5,t:0.25,ok:true}, 2500:{w:3.4,h:1.5,t:0.25,ok:true} };   // 2026-10-26 사용자 확정 (900·1600·2000·2500 두께 0.25)
+const CROSS = { 900:{w:2.5,h:1.2,t:0.2,ok:true}, 1250:{w:2.5,h:1.2,t:0.2,ok:true}, 1600:{w:3.0,h:1.5,t:0.25,ok:true}, 2000:{w:3.0,h:1.5,t:0.25,ok:true}, 2500:{w:3.4,h:1.5,t:0.25,ok:true} };   // 2026-10-26 사용자 확정 (900·1250 두께 0.2, 1600·2000·2500 두께 0.25)
 function crossDims(turbMm){ const c=CROSS[turbMm]; if(c) return {...c}; const k=(turbMm||1250)/1250; return {w:Math.round(2.5*k*10)/10, h:Math.round(1.2*k*10)/10, t:0.2, ok:false}; }
 const V9KEY = "turbine_sizing_v9_dwg";
 const n2 = v => v==null||!isFinite(v) ? "–" : (Math.round(v*100)/100).toLocaleString(undefined,{maximumFractionDigits:2});
