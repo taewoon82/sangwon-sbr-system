@@ -236,7 +236,7 @@ button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 <header>
   <div class="hbar">
     <div class="hbar-title">
-      <h1 id="appTitle">SBR 반응조 물질수지 · 표면포기기 터빈 선정 <small style="font-size:.55em;opacity:.7">v12.4.5 · 도면·시방서·압축파일 대조·검토서</small></h1>
+      <h1 id="appTitle">SBR 반응조 물질수지 · 표면포기기 터빈 선정 <small style="font-size:.55em;opacity:.7">v12.5.0 · 도면·시방서·압축파일 대조·검토서</small></h1>
       <p>용량계산서 PDF를 불러오면 칸이 자동으로 채워집니다(초록 칸 = 계산서에서 읽는 항목). 밝은 노란 칸은 계산서에 없어 직접 입력합니다. 유입수질·반응조 조건 → 물질수지(SRT·슬러지·질산화·침전) → 필요산소량(AOR→SOR→COR) → 터빈 규격·동력·토크까지 이어서 계산합니다. COR을 용량계산서 값으로 직접 넣는 방식도 그대로 쓸 수 있습니다.</p>
     </div>
     <div class="hbar-meta">
@@ -284,6 +284,7 @@ button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
     <div class="row"><label>유효수심 He <small>HWL 기준</small></label><input type="number" id="T" step="0.1"><span class="u">m</span></div>
     <div class="row"><label>모서리 모따기 <small>도면에 반응조 네 모서리 수직 헌치가 있을 때만 · 삼각형 1변 길이, 용적 = W×L − 2×변² · 계산서는 미반영(0)</small></label><input type="number" id="chamf" step="0.1"><span class="u">m</span></div>
     <div class="row"><label>반응조 지수 N</label><input type="number" id="nTank" step="1"><span class="u">지</span></div>
+    <div class="row"><label>지당 포기장치 대수 <small>한 지에 터빈 여러 대(예: 판포 2대) · 길이 방향으로 나눠 1대당 구역으로 판정</small></label><input type="number" id="nAer" step="1" min="1"><span class="u">대/지</span></div>
     <div class="row"><label>일일 사이클 수</label><input type="number" id="nc" step="1"><span class="u">회/d</span></div>
     <div class="row"><label>1일 폭기시간 Ta <small>1지 기준 · 인버터 운전 포함</small></label><input type="number" id="ta" step="0.1"><span class="u">hr/d</span></div>
     <div class="row"><label>설계 수온 <small>선택하면 Css가 수온별 표 값으로 바뀝니다</small></label><select id="temp"></select><span class="u">℃</span></div>
@@ -896,7 +897,7 @@ const CROWS = [["q","유입량 Q","m³/d",1],["y","Y (종속영양 수율)","–
 // 기본값: 4단계 T2 중수도 용량계산서(24,000㎥/일) — 예시
 const DEF_CASE = {q:[24751.8,24936.4,24362.0],bod:[376.9,449.3,191.5],ss:[441.2,525.9,224.0],tkn:[66.1,78.8,33.6],tn:[73.5,87.6,37.3],tp:[18.4,21.9,9.3],
                   x:[3800,4500,2500],xv:[2400,2900,1500],y:[0.35,0.40,0.30],ebod:[12,14,10],ess:[14,16,12],etn:[10,10,10],etp:[4,4,3],al:[0.88,0.83,0.93],be:[0.96,0.95,0.97]};
-const DEFAULTS = {eNH4:1.0,eON:1.0,shape:"rect",W:17,L:19,T:4.8,chamf:0,nTank:18,nc:4,ta:10.7,temp:12,DO:2.0,svi:150,buf:0.2,vtsf:1.1,
+const DEFAULTS = {eNH4:1.0,eON:1.0,shape:"rect",W:17,L:19,T:4.8,chamf:0,nTank:18,nAer:1,nc:4,ta:10.7,temp:12,DO:2.0,svi:150,buf:0.2,vtsf:1.1,
   kd20:0.12,thkd:1.07,fd:0.15,bcod:1.6,vssr:0.8,nbf:0.3,Ns:0.12,mun20:0.75,thmu:1.07,kn20:0.74,thkn:1.053,Yn:0.12,kdn20:0.08,thkdn:1.04,Ko:0.5,nitSF:1.5,
   cA:0.7,cK:2.5,cC:4.57,cB:0.07,Cs:8.84,Css:10.43,delta:1.1,codr:1.8,rbd:0.25,sP:5.65,sN:3.7,sC:1.4,alkIn:300,alkOut:50,
   caseSel:"max",corIn:129.2,sorIn:1256.9,o2target:"",h:1.0,sf:1.10,hz:"50",hrtT:26.9,siteName:"",printDate:""};
@@ -1024,7 +1025,9 @@ const cls3 = (v,okMin,warnMin) => v>=okMin?"ok":v>=warnMin?"warn":"bad";
 const td = (v,c="") => `<td class="${c}">${v}</td>`;
 
 function render(){
-  const G=geom(), vol=G.vol, S=G.S, T=G.T;
+  const G=geom(), vol=G.vol, T=G.T;
+  const nA=Math.max(1,Math.round(num("nAer")||1)), volU=vol/nA;
+  const S = (G.shape==="rect"&&nA>1) ? Math.min(Math.max(G.W,G.L)/nA, Math.min(G.W,G.L)) : G.S;   // 터빈 1대 구역의 짧은 변
   $("rowL").style.display = G.shape==="circ" ? "none" : "";
   $("lblW").firstChild.textContent = G.shape==="circ" ? "직경 Φ " : "가로 ";
   $("cssStd").textContent = f2(cssStd(num("temp")));
@@ -1098,7 +1101,7 @@ function render(){
 
   // ---- ⓪-1 ----
   const ST = T>0 ? S/T : 0;
-  $("S").textContent=f2(S); $("ST").textContent=f2(ST); $("vol").textContent=f1(vol);
+  $("S").textContent=f2(S); $("ST").textContent=f2(ST); $("vol").textContent=nA>1?`${f1(vol)} (1대당 ${f1(volU)})`:f1(vol);
   let stv, stc;
   if(ST>3.5){stv="S:T>3.5 — 보정판(hydraulic compensation plate) 필요";stc="warn";}
   else if(ST>=2.5){stv="최적 범위(2.5~3.5) — 이상 없음";stc="ok";}
@@ -1107,7 +1110,7 @@ function render(){
   const cross = ST>4 ? "불필요 (S:T>4)" : "필요 (터빈 저부 십자형 구조물)";
   const fb = G.shape==="circ" ? "필요 (원형)" : "불필요 (사각형)";
   $("stNote").className="note "+(stc==="ok"?"":stc);
-  $("stNote").innerHTML=`<b>S:T 판정</b> ${stv}<br>십자형 구조물: ${cross} · 정류판: ${fb}`;
+  $("stNote").innerHTML=`<b>S:T 판정</b> ${stv}<br>십자형 구조물: ${cross} · 정류판: ${fb}`+(nA>1?`<br>지당 ${nA}대 — 길이 방향으로 ${nA}등분한 1대 구역(${f1(Math.max(G.W,G.L)/nA)} × ${f1(Math.min(G.W,G.L))} m) 기준으로 판정`:"");
 
   // ---- ⓪-2 COR ----
   const m=state.corMode;
@@ -1127,7 +1130,8 @@ function render(){
   if(m==="mb"){ COR=R?R.COR:NaN; alphaUsed=num("al_"+ci); $("corSrc").textContent=`물질수지 ${CASES[ci]} 케이스 (${$("caseSel").value==="max"?"최대 자동":"선택"})`; }
   else if(m==="direct"){ COR=num("corIn"); alphaUsed=num("al_"+ci); $("corSrc").textContent="직접 입력값"; }
   else { COR=num("ta")>0?num("sorIn")/num("ta"):NaN; alphaUsed=num("al_"+ci); $("corSrc").textContent="SOR ÷ Ta (δ 미적용)"; }
-  $("cor").textContent=f1(COR);
+  const CORt=COR; if(nA>1) COR=COR/nA;   // 이후 터빈 선정·동력은 1대 기준
+  $("cor").textContent = nA>1 ? `${f1(CORt)} (1대 ${f1(COR)})` : f1(COR);
   [...$("mbTbl").rows,...$("nitTbl").rows,...$("oxTbl").rows,...$("cbTbl").rows].forEach(tr=>{ for(let k=1;k<=3;k++){ const c=tr.cells[k]; if(c&&c.tagName==="TD") c.style.fontWeight = (m==="mb"&&k-1===ci)?"600":""; } });
   if(state.corBaselineVol===null) state.corBaselineVol=vol;
   const volDrift = state.corBaselineVol>0 ? Math.abs(vol-state.corBaselineVol)/state.corBaselineVol : 0;
@@ -1144,7 +1148,7 @@ function render(){
   const o2t=num("o2target");
   let recBoth=null, recO2=null, rows="";
   for(const s of SIZES){const c=CAT[s];
-    const vOk=vol>=c.vmin&&vol<=c.vmax, oOk=o2t>=c.o2min&&o2t<=c.o2max, both=vOk&&oOk;
+    const vOk=volU>=c.vmin&&volU<=c.vmax, oOk=o2t>=c.o2min&&o2t<=c.o2max, both=vOk&&oOk;
     if(both&&!recBoth) recBoth=s; if(oOk&&!recO2) recO2=s;
     rows+=`<tr><td>${s}</td><td>${c.vmin}~${c.vmax}</td><td class="${vOk?'ok':'bad'}">${vOk?'적합':'부적합'}</td><td>${c.o2min}~${c.o2max}</td><td class="${oOk?'ok':'bad'}">${oOk?'OK':'NG'}</td><td><span class="tag ${both?'ok':'bad'}">${both?'적합':'부적합'}</span></td></tr>`;}
   $("recTbl").innerHTML=`<tr><th>규격</th><th>용적 m³</th><th>용적</th><th>O₂ kg/h</th><th>O₂</th><th>종합</th></tr>${rows}`;
@@ -1250,13 +1254,13 @@ function render(){
   $("alphaTbl").innerHTML=at;
 
   // ---- 요약 ----
-  $("hSize").textContent=size;
+  $("hSize").textContent = nA>1 ? `${size} × ${nA}대/지` : size;
   $("hP").innerHTML=`${f1(P)}<small>kW</small>`; $("hT").innerHTML=`${f0(Tqd)}<small>N·m</small>`;
   // 추천 모터: 설계 소요동력(여유율 적용) 이상인 표준 기어드모터 중 가장 작은 것 (포기장치용 기어드모터 목록 기준)
   { const MOTOR_KW=[1.5,2.2,3,4,5.5,7.5,11,15,18.5,22,30,37,45,55,75,90,110]; const mk=MOTOR_KW.find(k=>k>=Pd-1e-9);
     $("hMotor").innerHTML = !isFinite(Pd)||Pd<=0 ? "–" : mk!=null ? `${mk}<small>kW</small><div class="sub" style="font-size:12px;font-weight:400;opacity:.75">설계 소요동력 ${f1(Pd)} kW 이상</div>` : `<span style="font-size:18px">110 kW 초과</span><div class="sub" style="font-size:12px;font-weight:400;opacity:.75">설계 소요동력 ${f1(Pd)} kW — 별도 선정</div>`; }
   $("hRpm").innerHTML=`${f1(ratedV)} / ${f1(rpm)}<small>rpm</small>`;
-  $("hO2").innerHTML=`${f1(o2now)}<small>kgO₂/h</small>`; $("hCor").innerHTML=`${f1(COR)}<small>kgO₂/h</small>`;
+  $("hO2").innerHTML=`${f1(o2now)}<small>kgO₂/h</small>`; $("hCor").innerHTML = nA>1 ? `${f1(COR)}<small>kgO₂/h·대 (지당 ${f1(CORt)})</small>` : `${f1(COR)}<small>kgO₂/h</small>`;
   const al=[];
   if(!recBoth) al.push(["bad","적합 규격 없음 — "+rn]);
   if(o2now<o2t*0.98) al.push(["bad",`운전점 산소전달량(${f1(o2now)})이 목표(${f1(o2t)})에 못 미칩니다. ${state.mode==="C"&&hz<60?`60Hz로 올리면 ${f1(o2At(c,ratedV))}kgO₂/h까지 가능합니다.`:'규격·명판 RPM 또는 폭기시간(Ta)을 재검토하세요.'}`]);
@@ -2190,8 +2194,10 @@ function elecLoadsFill(c, E){
   if(L.eff){ app(94, `총인 공급펌프 ${L.eff.tag} 전기도면 ${L.eff.kw}kW (${L.eff.ref})`); }
   // 포기장치가 공법제어반을 거쳐 공급되면 제어반 부하 = (포기 + 윈치) × 지수 와 대조
   if(L.panel && !L.aer){ const a=n(c.D51)?c.D51:n(c.D52)?c.D52:null, w=n(c.D60)?c.D60:0, N=n(c.D13)?c.D13:1;
-    if(a!=null){ const sum=Math.round((a+w)*N*100)/100; const ok=L.panel.kw>=sum*0.98 && L.panel.kw<=sum*1.25;
-      app(53, `전기도면 공법제어반 ${L.panel.tag} ${L.panel.kw}kW ${ok?"≈":"≠"} (포기 ${a}+윈치 ${w})×${N} = ${sum}kW${ok?"":" — 확인 필요"} (${L.panel.ref})`); if(!ok && (c.F53==null||c.F53==="")) c.F53="검토"; } }
+    if(a!=null){ const nA=(window.V9&&V9.xls&&V9.xls.nAer)||1, nD=(window.V9&&V9.xls&&V9.xls.nDec)||1;
+      const sum=Math.round((a*nA+w*nD)*N*100)/100; const ok=L.panel.kw>=sum*0.98 && L.panel.kw<=sum*1.25;
+      const expr = (nA>1||nD>1) ? `(포기 ${a}×${nA}+윈치 ${w}×${nD})×${N}` : `(포기 ${a}+윈치 ${w})×${N}`;
+      app(53, `전기도면 공법제어반 ${L.panel.tag} ${L.panel.kw}kW ${ok?"≈":"≠"} ${expr} = ${sum}kW${ok?"":" — 확인 필요"} (${L.panel.ref})`); if(!ok && (c.F53==null||c.F53==="")) c.F53="검토"; } }
 }
 
 // ===== v12.2: 검토서 판정·검토의견 자동 작성 + 양식 수식 계산값 저장 =====
@@ -2211,7 +2217,14 @@ const n2s = v => isNum(v)? String(Math.round(+v*100)/100) : String(v??"");
 
 // ---- 1) 항목별 판정·검토의견 (값이 있는 행만; 이미 넣은 칸은 유지)
 function reviewJudge(c, ctx){
-  const {rows, X, SP, D} = ctx; const V1=tplEval(c); const val=a=> a in c ? c[a] : V1[a];
+  const {rows, X, SP, D} = ctx;
+  // 지당 배출장치 여러 대(판포 2대/지): QIN이 1대 값이면 배출소요시간은 대수를 곱한 유량으로 — 양식 수식 대신 값으로 기록
+  { const nDd=(X&&X.nDec)||1, q=+c.D58, D13=+c.D13, D14=+c.D14, D61=+c.D61;
+    if(nDd>1 && X.qin && X.qin.per==="대" && q>0 && D13>0 && D14>0){ const tgt = c.D62!=null&&c.D62!==""? +c.D62/D13/D14 : +c.D12/D13/D14, qT=q*nDd;
+      if(isFinite(tgt)&&tgt>0){ c.D64=Math.round(tgt/(qT*3.6)*1000)/1000;
+        if(D61>0){ const need=Math.round(tgt/(D61*3600)*1000)/1000; c.F64= need<=qT/1000?"확인":"부적합";
+          c.G64=`배출 대상 ${fx.f1(tgt)}㎥/cycle · 필요 배출유량 ${fx.i0(need*1000)}L/s / 지당 배출장치 ${nDd}대 × ${fx.f0x(q)}L/s = ${fx.f0x(qT)}L/s · 배출단계 ${fx.f2(D61)}hr`; } } } }
+  const V1=tplEval(c); const val=a=> a in c ? c[a] : V1[a];
   const R = k => rows.find(r=>r.key===k) || {};
   const put = (r, f, g) => { if(f!=null && blank(c["F"+r])) c["F"+r]=f; if(g && blank(c["G"+r])) c["G"+r]=g; };
   const has = a => !blank(val(a));
@@ -2232,7 +2245,10 @@ function reviewJudge(c, ctx){
   if(noEq){ c.D25=""; for(let r=22;r<=28;r++){ c["F"+r]="해당없음"; c["G"+r]= r===22?"용량계산서에 유량조정조 없음 — 해당 없음":"해당 없음"; } }
   cmp(22,"eqW","가로"); cmp(23,"eqL","세로"); cmp(24,"eqHe","수심"); cmp(25,"eqN","지수");
   if(isNum(val("D26"))) put(26,"확인", X.eqVe?`계산서 유효용량 ${n2s(X.eqVe.v)}㎥`:"가로 × 세로 × 수심 × 지수");
-  if(isNum(val("D27"))){ const T=X.eqT&&X.eqT.v; if(T) put(27, val("D27")>=T*0.999?"확인":"부적합", `기준 ${T}hr 이상 (용량계산서) — ${fx.f1(val("D27"))}hr`); else put(27,"검토","체류시간 기준값이 계산서에 없음"); }
+  if(isNum(val("D27"))){ const T=X.eqT&&X.eqT.v, Vm=X.eqVm&&X.eqVm.v, Ve=val("D26");
+    // 계산서는 유량조정조를 일최대유입량 기준(V = Q × T)으로 잡는데 양식은 설계유량(반송 포함)으로 나눔 → 계산서 필요용량이 있으면 그것으로 판정
+    if(T && Vm && isNum(Ve) && val("D27")<T*0.999) put(27, Ve>=Vm*0.999?"확인":"부적합", `유효용량 ${fx.f0x(Ve)}㎥ ${Ve>=Vm*0.999?"≥":"<"} 계산서 필요용량 ${fx.f0x(Vm)}㎥ (일최대유입량 기준 ${T}hr) · 설계유량 기준으로는 ${fx.f2(val("D27"))}hr`);
+    else if(T) put(27, val("D27")>=T*0.999?"확인":"부적합", `기준 ${T}hr 이상 (용량계산서) — ${fx.f1(val("D27"))}hr`); else put(27,"검토","체류시간 기준값이 계산서에 없음"); }
   if(has("G28")) put(28, /맞지 않음|LWL 표기 없음/.test(c.G28)?"검토":"확인");
   if(has("D29")) put(29, /추정/.test(c.H29||"")?"검토":"확인", /추정/.test(c.H29||"")?"도면 배관 표기로 추정한 값 — 장비일람표 구경과 대조 필요":"장비 사양 값");
   else if(has("H29")) put(29,null,"구경 자료 없음 — 장비일람표·시방서 필요");
@@ -2274,9 +2290,14 @@ function reviewJudge(c, ctx){
   // 시방서·전원 자료가 비어 수식이 판정을 못 내는 칸
   if(blank(V1.D53) && isNum(val("D51"))) put(53,"검토",`시방서 동력 값 없음 — 도면 ${fx.f0x(val("D51"))}kW만 확인됨, 시방서 대조 필요`);
   if(blank(V1.D53) && !isNum(val("D51")) && isNum(val("D52"))) put(53,"검토",`도면에 동력 표기 없음 — 시방서 ${fx.f0x(val("D52"))}kW만 확인됨, 기기일람표 대조 필요`);
-  if(blank(V1.D75) && isNum(val("D52")) && isNum(val("D60")) && isNum(val("D13"))){ const ld=(val("D52")+val("D60"))*val("D13"), cap=val("D74");
-    if(isNum(cap)) put(75, cap>=ld?"확인":"부적합", `도면 동력 없음 — 시방서 기준 (${fx.f0x(val("D52"))}+${fx.f0x(val("D60"))})×${val("D13")} = ${fx.f0x(ld)}kW ${cap>=ld?"≤":">"} 1차 전원 ${fx.f1(cap)}kW`);
-    else put(75,"검토",`도면 동력 없음 — 시방서 기준 (${fx.f0x(val("D52"))}+${fx.f0x(val("D60"))})×${val("D13")} = ${fx.f0x(ld)}kW, 1차 전원 용량 확인`); }
+  // 지당 포기장치·배출장치가 여러 대(판포 2대/지)면 부하 = (포기×대수 + 윈치×대수) × 지수 — 양식 수식 대신 값으로 기록
+  const nA=(X&&X.nAer)||1, nD=(X&&X.nDec)||1, multi=nA>1||nD>1;
+  const ex=(a,w)=> multi? `(${fx.f0x(a)}×${nA}+${fx.f0x(w)}×${nD})×${val("D13")}` : `(${fx.f0x(a)}+${fx.f0x(w)})×${val("D13")}`;
+  if(multi && isNum(val("D51")) && isNum(val("D60")) && isNum(val("D13"))){ const ld=(val("D51")*nA+val("D60")*nD)*val("D13"), cap=val("D74"); c.D75=Math.round(ld*100)/100;
+    put(75, isNum(cap)?(cap>=ld?"확인":"부적합"):"검토", `도면 기준 ${ex(val("D51"),val("D60"))} = ${fx.f0x(ld)}kW (지당 포기 ${nA}대·배출 ${nD}대)${isNum(cap)?` ${cap>=ld?"≤":">"} 1차 전원 ${fx.f1(cap)}kW`:", 1차 전원 용량 확인"}`); }
+  if(blank(c.D75) && blank(V1.D75) && isNum(val("D52")) && isNum(val("D60")) && isNum(val("D13"))){ const ld=(val("D52")*nA+val("D60")*nD)*val("D13"), cap=val("D74"); if(multi) c.D75=Math.round(ld*100)/100;
+    if(isNum(cap)) put(75, cap>=ld?"확인":"부적합", `도면 동력 없음 — 시방서 기준 ${ex(val("D52"),val("D60"))} = ${fx.f0x(ld)}kW ${cap>=ld?"≤":">"} 1차 전원 ${fx.f1(cap)}kW`);
+    else put(75,"검토",`도면 동력 없음 — 시방서 기준 ${ex(val("D52"),val("D60"))} = ${fx.f0x(ld)}kW, 1차 전원 용량 확인`); }
   if(isNum(V1.D75) && blank(V1.F75) && !isNum(val("D74"))) put(75,"검토",`동력부하 ${fx.f0x(V1.D75)}kW — 도면에서 1차 전원 용량을 찾지 못함, 전기 도면 확인`);
   if(has("H69") && blank(c.G69)) put(69,null,`${c.H69} — 인버터·PLC 이중화·LOP 면수는 시방서·제어반 도면 확인`);
   // 자동 판정이 불가능한 항목: 판정은 비워 두고(=담당자 확인) 확인할 내용을 적어 둠
@@ -2424,7 +2445,7 @@ const CDN = {
 };
 const V9 = { xls:null, xlsName:"", dwg:null, dwgName:"", over:{}, pick:{}, lib:null, mod:null };
 // 십자구조물 표준 치수 (터빈 형식별, m) — 확인된 형식만. 나머지는 1250형 비례 추정
-const CROSS = { 1250:{w:2.5,h:1.2,t:0.2,ok:true} };
+const CROSS = { 900:{w:2.5,h:1.2,t:0.25,ok:true}, 1250:{w:2.5,h:1.2,t:0.2,ok:true}, 1600:{w:3.0,h:1.5,t:0.25,ok:true}, 2000:{w:3.0,h:1.5,t:0.25,ok:true}, 2500:{w:3.4,h:1.5,t:0.25,ok:true} };   // 2026-10-26 사용자 확정 (900·1600·2000·2500 두께 0.25)
 function crossDims(turbMm){ const c=CROSS[turbMm]; if(c) return {...c}; const k=(turbMm||1250)/1250; return {w:Math.round(2.5*k*10)/10, h:Math.round(1.2*k*10)/10, t:0.2, ok:false}; }
 const V9KEY = "turbine_sizing_v9_dwg";
 const n2 = v => v==null||!isFinite(v) ? "–" : (Math.round(v*100)/100).toLocaleString(undefined,{maximumFractionDigits:2});
@@ -2444,24 +2465,30 @@ function capExtra(wb){
     if(m){ out.cap=tn(m[1]); const s=t.match(/^\s*\d+(?:\.\d+)*\s+(.+?)\s*-\s*[\d,]/); if(s) out.site=s[1].replace(/\s*용량\s*계산서\s*$/,"").trim(); break; }
   }
   const secs=[]; rows.forEach((r,i)=>{ const a=r&&r[0]!=null?String(r[0]).trim():""; const m=a.match(/^\d\)\s*(.+)$/); if(m) secs.push({i,name:m[1]}); });
-  const range = re => { const k=secs.findIndex(s=>re.test(s.name)); return k<0?null:[secs[k].i, k+1<secs.length?secs[k+1].i:rows.length]; };
+  const range = re => { const ks=secs.map((s,k)=>re.test(s.name)?k:-1).filter(k=>k>=0); if(!ks.length) return null; const k= ks.length>1 ? (ks.find(k=>/증설|신설/.test(secs[k].name))??ks[0]) : ks[0]; if(ks.length>1) out.multiSec=(out.multiSec||[]).concat(secs[k].name); return [secs[k].i, k+1<secs.length?secs[k+1].i:rows.length]; };
   const valAfter = (r,ci) => { for(let c=ci+1;c<r.length;c++){ const v=r[c]; if(typeof v==="number"&&isFinite(v)) return {v,c}; if(typeof v==="string"&&/^\s*-?\d[\d,]*(\.\d+)?\s*$/.test(v)) return {v:tn(v),c}; } return null; };
   const find = (rg,re,from) => { if(!rg) return null; for(let i=(from??rg[0]);i<rg[1];i++){ const r=rows[i]||[]; for(let c=0;c<r.length;c++){ if(r[c]!=null && re.test(String(r[c]))){ const f=valAfter(r,c); if(f) return {v:f.v, at:name+"!"+XLSX.utils.encode_cell({r:i,c:f.c})}; } } } return null; };
   const spec = rg => { if(!rg) return null; for(let i=rg[0];i<rg[1];i++) if((rows[i]||[]).some(v=>v!=null&&/규\s*격/.test(String(v)))) return i; return rg[0]; };
   const tank = (rg,pfx) => { if(!rg) return; const s=spec(rg);
     out[pfx+"W"]=find(rg,/폭\s*\(W\)/,s); out[pfx+"L"]=find(rg,/길\s*이\s*\(L\)/,s); out[pfx+"He"]=find(rg,/유효\s*수심/,s); out[pfx+"N"]=find(rg,/▶\s*지\s*수/,s); };
   tank(range(/유량\s*조정조/),"eq");
-  { const eqR=range(/유량\s*조정조/); if(eqR){ out.eqT=find(eqR,/체류\s*시간\s*\(T\)/); out.eqVe=find(eqR,/▶\s*유효\s*용량/); } }
+  { const eqR=range(/유량\s*조정조/); if(eqR){ out.eqT=find(eqR,/체류\s*시간\s*\(T\)/); out.eqVe=find(eqR,/▶\s*유효\s*용량/); out.eqVm=find(eqR,/실\s*유효\s*용량\s*\(V\)|필요\s*용량/); } }
   const dec = range(/배출\s*장치/);
   tank(dec,"ef");
   out.decMin = find(dec,/배출\s*시간/);
   { const vmRow=find(dec,/\(Vm\)|필요용량/); if(vmRow) out.efVm=vmRow; }
   out.decQ = find(dec,/설계\s*유입량\s*\(Q\)/);
-  const q = find(dec,/QIN\s*=/); if(q) out.qin = {v:q.v<1? q.v*1000 : q.v, at:q.at};
+  const unitAfter=(rg,re)=>{ if(!rg) return null; for(let i=rg[0];i<rg[1];i++){ const r=rows[i]||[]; for(let c=0;c<r.length;c++){ if(r[c]!=null&&re.test(String(r[c]))){ const f=valAfter(r,c); if(f) return {v:f.v, u:String(r[f.c+1]??""), at:name+"!"+XLSX.utils.encode_cell({r:i,c:f.c})}; } } } return null; };
+  const q = unitAfter(dec,/QIN\s*=/);
+  if(q){ const m3s=/m3\s*\/\s*s|㎥\s*\/\s*s/i.test(q.u); out.qin = {v:(m3s||q.v<1)? Math.round(q.v*1000*10)/10 : q.v, at:q.at}; if(/계열/.test(q.u)) out.qin.per="계열"; }
+  if(dec){ for(let i=dec[0];i<dec[1];i++){ const r=rows[i]||[]; for(let c=0;c<r.length-1;c++){ const v=r[c], u=String(r[c+1]??""); if(typeof v==="number"&&v>0&&/m3\s*\/\s*sec\s*\/\s*대|㎥\s*\/\s*s\s*\/\s*대/i.test(u)){ out.qin={v:Math.round(v*1000*10)/10, at:name+"!"+XLSX.utils.encode_cell({r:i,c}), per:"대"}; i=dec[1]; break; } } } }
   if(dec){ for(let i=dec[0];i<dec[1];i++){ const r=rows[i]||[]; if(!r.some(v=>v!=null&&/Decanter\s*설치|배출장치\s*설치/i.test(String(v)))) continue;
       r.forEach((v,c)=>{ if(v==null) return; const s=String(v).trim(); let m;
         if((m=s.match(/^A\s*(\d{2,3})$/))) out.decSize={v:+m[1], at:name+"!"+XLSX.utils.encode_cell({r:i,c})};
-        if((m=s.match(/^(\d+(?:\.\d+)?)\s*kw$/i))) out.winch={v:+m[1], at:name+"!"+XLSX.utils.encode_cell({r:i,c})}; }); } }
+        if((m=s.match(/^(\d+(?:\.\d+)?)\s*kw$/i))) out.winch={v:+m[1], at:name+"!"+XLSX.utils.encode_cell({r:i,c})}; }); }
+    if(!out.decSize||!out.winch){ for(let i=dec[0];i<dec[1];i++){ const r=rows[i]||[]; r.forEach((v,c)=>{ if(v==null) return; const s=String(v).trim(); let m;
+        if(!out.decSize&&(m=s.match(/^A\s*(\d{2,3})$/))) out.decSize={v:+m[1], at:name+"!"+XLSX.utils.encode_cell({r:i,c})};
+        if(!out.winch&&(m=s.match(/^(\d+(?:\.\d+)?)\s*kw$/i))) out.winch={v:+m[1], at:name+"!"+XLSX.utils.encode_cell({r:i,c})}; }); } } }
   const sbrR = range(/SBR|생물\s*반응조/);
   if(sbrR){ for(let i=sbrR[0];i<sbrR[1];i++){ const r=rows[i]||[]; if(!r.some(v=>v!=null&&/VF\s*\/\s*VT/.test(String(v)))) continue;
       for(let k=i;k<=i+2&&k<sbrR[1];k++){ const vs=(rows[k]||[]).filter(v=>typeof v==="number"&&v>0.15&&v<0.85); if(vs.length){ out.vfvt={min:Math.min(...vs), vals:[...new Set(vs)], at:name+"!"+(k+1)}; break; } } if(out.vfvt) break; } }
@@ -2470,6 +2497,11 @@ function capExtra(wb){
   if(out.o2 && aer){ for(let i=aer[0];i<aer[1];i++){ const r=rows[i]||[]; if(!r.some(v=>v!=null&&/▶\s*용\s*량/.test(String(v)))) continue;
       const vs=[]; r.forEach((v,c)=>{ if(typeof v==="number"&&isFinite(v)&&r.slice(c+1,c+3).some(u=>u!=null&&/kg\s*O/i.test(String(u)))) vs.push({v,c}); });
       if(vs.length>1){ const mx=vs.reduce((a,b)=>b.v>a.v?b:a); out.o2={v:mx.v, at:name+"!"+XLSX.utils.encode_cell({r:i,c:mx.c}), cases:vs.map(o=>o.v)}; } break; } }
+  // 지당 포기장치 대수: 같은 케이스의 kgO2/hr/지 ÷ kgO2/hr/대 (판포처럼 한 지에 2대)
+  if(aer){ const numBefore=(r,re)=>{ for(let c=1;c<r.length;c++){ if(r[c]!=null&&re.test(String(r[c]))){ for(let k=c-1;k>=0;k--){ const v=r[k]; if(typeof v==="number"&&isFinite(v)) return v; } } } return null; };
+    let a=null,b=null; for(let i=aer[0];i<aer[1];i++){ const r=rows[i]||[]; if(a==null){ const v=numBefore(r,/kgO2?\s*\/\s*hr?\s*\/\s*지/i); if(v) a=v; } if(b==null){ const v=numBefore(r,/kgO2?\s*\/\s*hr?\s*\/\s*대/i); if(v) b=v; } }
+    if(a>0&&b>0){ const n=Math.round(a/b); if(n>=2&&n<=6&&Math.abs(a/b-n)<0.05) out.nAer=n; } }
+  if(dec){ for(let i=dec[0];i<dec[1];i++){ const r=rows[i]||[]; const c=r.findIndex(v=>v!=null&&/가동\s*대수/.test(String(v))); if(c<0) continue; const f=valAfter(r,c); if(f&&f.v>=1&&f.v<=6){ out.nDec=Math.round(f.v); break; } } }
   return out;
 }
 
@@ -2513,7 +2545,7 @@ function model(){
   const sz=($("hSize")?.textContent||"").match(/(\d{3,4})/);
   add("포기장치 · 배출장치","turb","포기장치 터빈 (웹앱 선정)","Ø mm", sz?+sz[1]:null, null,{dtxt:D&&D.aerator?`${D.aerator.code} ${D.aerator.name}`:"", xsrc:"웹앱 선정",noCmp:1});
   add("포기장치 · 배출장치","kw","설계 소요동력 (웹앱, 여유율 적용)","kW", designKW(), null,{xsrc:"웹앱 산정",noCmp:1});
-  add("포기장치 · 배출장치","o2","산소공급능력 (지당, 최대 케이스)","kgO₂/h", val(X.o2), null,{noCmp:1, xsrc:X.o2&&X.o2.cases?`케이스별 ${X.o2.cases.join(" / ")}`:""});
+  add("포기장치 · 배출장치","o2",`산소공급능력 (${(X.nAer||1)>1?"1대당":"지당"}, 최대 케이스)`,"kgO₂/h", val(X.o2), null,{noCmp:1, xsrc:X.o2&&X.o2.cases?`케이스별 ${X.o2.cases.join(" / ")}`:""});
   const dp=D&&D.decPipe;
   add("포기장치 · 배출장치","dsz","배출장치 구경","A", val(X.decSize), dp?dp.a:null,{dtxt:D&&D.decanter?`${D.decanter.code} ${D.decanter.name}`:"", dnote:dp?`반응조 주변 처리수(TW) 배관 표기 ${dp.n}곳${Object.keys(dp.sizes).length>1?` (그 외 ${Object.entries(dp.sizes).filter(([a])=>+a!==dp.a).map(([a,n])=>a+"A "+n+"곳").join(", ")})`:""}${D.decanter?` · ${D.decanter.code} ${D.decanter.name}`:""}`:""});
   add("포기장치 · 배출장치","qin","배출유량 (QIN)","L/s", val(X.qin), null,{noCmp:1});
@@ -2931,7 +2963,7 @@ async function makeXlsx(){
     const cmpTxt=k=>{ const r=rows.find(x=>x.key===k); return r&&r.st==="일치"?`용량계산서 = 도면 (${n2(r.xls)})`: r&&r.st==="불일치"?`용량계산서 ${n2(r.xls)} / 도면 ${n2(r.dwg)} 불일치`:""; };
     set("H37",cmpTxt("W")); set("H38",cmpTxt("L")); set("H40",cmpTxt("He")); set("H22",cmpTxt("eqW")); set("H23",cmpTxt("eqL")); set("H24",cmpTxt("eqHe"));
     const he=rows.find(x=>x.key==="He"); if(he&&he.st) { set("F42", he.st==="일치"?"확인":"검토"); set("H42",cmpTxt("He")); }
-    const tb=A(rows,"turb"); set("D49",tb); set("G49",`웹앱 선정 ${($("hSize").textContent||"").trim()} · 설계 소요동력 ${n2(designKW())} kW · 운전점 산소전달 ${($("hO2").textContent||"").replace(/kgO₂\/h/,"").trim()} kgO₂/h`);
+    const tb=A(rows,"turb"); set("D49",tb); { const pu=(+($("nAer")||{}).value||1)>1?"/대":""; set("G49",`웹앱 선정 ${($("hSize").textContent||"").trim()} · 설계 소요동력 ${n2(designKW())} kW${pu} · 운전점 산소전달 ${($("hO2").textContent||"").replace(/kgO₂\/h/,"").trim()} kgO₂/h${pu}`); }
     set("D50",A(rows,"o2")); set("H51",`웹앱 설계 소요동력 ${n2(designKW())} kW (참고)`);
     if(D){ set("D56",D.hoist?"있음":"없음"); if(D.hoist){ set("F56","확인"); set("G56",`${D.hoist.code} ${hoistName(D.hoist.name)}`); } else set("F56","검토"); }
     set("D58",A(rows,"qin")); set("D59",A(rows,"dsz")); set("D60",A(rows,"winch")); set("D61",A(rows,"dt")); set("D62",A(rows,"decQ"));
@@ -3049,7 +3081,8 @@ async function makeXlsx(){
     if(/\.xls[xm]?$/i.test(file.name) && window.XLSX){
       try{ V9.xls=capExtra(XLSX.read(new Uint8Array(await file.arrayBuffer()),{type:"array"})); V9.xlsName=file.name; V9.over={};
         const base=file.name.replace(/\.(xlsx?|xlsm)$/i,""), sn=$("siteName");
-        if(V9.xls.site && (!sn.value.trim() || sn.value.trim()===base)){ sn.value=V9.xls.site; sn.dispatchEvent(new Event("input")); } }catch(e){ V9.xls=null; }
+        if(V9.xls.site && (!sn.value.trim() || sn.value.trim()===base)){ sn.value=V9.xls.site; sn.dispatchEvent(new Event("input")); }
+        { const na=$("nAer"); if(na){ na.value=V9.xls.nAer||1; if(typeof render==="function") render(); } } }catch(e){ V9.xls=null; }
     }
     renderCmp9();
   };
@@ -3085,7 +3118,7 @@ async function makeXlsx(){
 </style>
 <script>
 (function(){
-  const ver='12.4.5';
+  const ver='12.5.0';
   const desk = location.protocol==='app:';
   const h1=document.querySelector('h1'); if(!h1) return;
   const b=document.createElement('button'); b.id='updBtn'; b.textContent='⟳ 업데이트 (현재 v'+ver+')';

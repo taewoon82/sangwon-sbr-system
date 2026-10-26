@@ -190,6 +190,8 @@ function elecLoadsFill(c, E){
   if(L.eff){ app(94, `총인 공급펌프 ${L.eff.tag} 전기도면 ${L.eff.kw}kW (${L.eff.ref})`); }
   // 포기장치가 공법제어반을 거쳐 공급되면 제어반 부하 = (포기 + 윈치) × 지수 와 대조
   if(L.panel && !L.aer){ const a=n(c.D51)?c.D51:n(c.D52)?c.D52:null, w=n(c.D60)?c.D60:0, N=n(c.D13)?c.D13:1;
-    if(a!=null){ const sum=Math.round((a+w)*N*100)/100; const ok=L.panel.kw>=sum*0.98 && L.panel.kw<=sum*1.25;
-      app(53, `전기도면 공법제어반 ${L.panel.tag} ${L.panel.kw}kW ${ok?"≈":"≠"} (포기 ${a}+윈치 ${w})×${N} = ${sum}kW${ok?"":" — 확인 필요"} (${L.panel.ref})`); if(!ok && (c.F53==null||c.F53==="")) c.F53="검토"; } }
+    if(a!=null){ const nA=(window.V9&&V9.xls&&V9.xls.nAer)||1, nD=(window.V9&&V9.xls&&V9.xls.nDec)||1;
+      const sum=Math.round((a*nA+w*nD)*N*100)/100; const ok=L.panel.kw>=sum*0.98 && L.panel.kw<=sum*1.25;
+      const expr = (nA>1||nD>1) ? `(포기 ${a}×${nA}+윈치 ${w}×${nD})×${N}` : `(포기 ${a}+윈치 ${w})×${N}`;
+      app(53, `전기도면 공법제어반 ${L.panel.tag} ${L.panel.kw}kW ${ok?"≈":"≠"} ${expr} = ${sum}kW${ok?"":" — 확인 필요"} (${L.panel.ref})`); if(!ok && (c.F53==null||c.F53==="")) c.F53="검토"; } }
 }

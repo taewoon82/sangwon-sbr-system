@@ -15,7 +15,14 @@ const n2s = v => isNum(v)? String(Math.round(+v*100)/100) : String(v??"");
 
 // ---- 1) 항목별 판정·검토의견 (값이 있는 행만; 이미 넣은 칸은 유지)
 function reviewJudge(c, ctx){
-  const {rows, X, SP, D} = ctx; const V1=tplEval(c); const val=a=> a in c ? c[a] : V1[a];
+  const {rows, X, SP, D} = ctx;
+  // 지당 배출장치 여러 대(판포 2대/지): QIN이 1대 값이면 배출소요시간은 대수를 곱한 유량으로 — 양식 수식 대신 값으로 기록
+  { const nDd=(X&&X.nDec)||1, q=+c.D58, D13=+c.D13, D14=+c.D14, D61=+c.D61;
+    if(nDd>1 && X.qin && X.qin.per==="대" && q>0 && D13>0 && D14>0){ const tgt = c.D62!=null&&c.D62!==""? +c.D62/D13/D14 : +c.D12/D13/D14, qT=q*nDd;
+      if(isFinite(tgt)&&tgt>0){ c.D64=Math.round(tgt/(qT*3.6)*1000)/1000;
+        if(D61>0){ const need=Math.round(tgt/(D61*3600)*1000)/1000; c.F64= need<=qT/1000?"확인":"부적합";
+          c.G64=`배출 대상 ${fx.f1(tgt)}㎥/cycle · 필요 배출유량 ${fx.i0(need*1000)}L/s / 지당 배출장치 ${nDd}대 × ${fx.f0x(q)}L/s = ${fx.f0x(qT)}L/s · 배출단계 ${fx.f2(D61)}hr`; } } } }
+  const V1=tplEval(c); const val=a=> a in c ? c[a] : V1[a];
   const R = k => rows.find(r=>r.key===k) || {};
   const put = (r, f, g) => { if(f!=null && blank(c["F"+r])) c["F"+r]=f; if(g && blank(c["G"+r])) c["G"+r]=g; };
   const has = a => !blank(val(a));
@@ -36,7 +43,10 @@ function reviewJudge(c, ctx){
   if(noEq){ c.D25=""; for(let r=22;r<=28;r++){ c["F"+r]="해당없음"; c["G"+r]= r===22?"용량계산서에 유량조정조 없음 — 해당 없음":"해당 없음"; } }
   cmp(22,"eqW","가로"); cmp(23,"eqL","세로"); cmp(24,"eqHe","수심"); cmp(25,"eqN","지수");
   if(isNum(val("D26"))) put(26,"확인", X.eqVe?`계산서 유효용량 ${n2s(X.eqVe.v)}㎥`:"가로 × 세로 × 수심 × 지수");
-  if(isNum(val("D27"))){ const T=X.eqT&&X.eqT.v; if(T) put(27, val("D27")>=T*0.999?"확인":"부적합", `기준 ${T}hr 이상 (용량계산서) — ${fx.f1(val("D27"))}hr`); else put(27,"검토","체류시간 기준값이 계산서에 없음"); }
+  if(isNum(val("D27"))){ const T=X.eqT&&X.eqT.v, Vm=X.eqVm&&X.eqVm.v, Ve=val("D26");
+    // 계산서는 유량조정조를 일최대유입량 기준(V = Q × T)으로 잡는데 양식은 설계유량(반송 포함)으로 나눔 → 계산서 필요용량이 있으면 그것으로 판정
+    if(T && Vm && isNum(Ve) && val("D27")<T*0.999) put(27, Ve>=Vm*0.999?"확인":"부적합", `유효용량 ${fx.f0x(Ve)}㎥ ${Ve>=Vm*0.999?"≥":"<"} 계산서 필요용량 ${fx.f0x(Vm)}㎥ (일최대유입량 기준 ${T}hr) · 설계유량 기준으로는 ${fx.f2(val("D27"))}hr`);
+    else if(T) put(27, val("D27")>=T*0.999?"확인":"부적합", `기준 ${T}hr 이상 (용량계산서) — ${fx.f1(val("D27"))}hr`); else put(27,"검토","체류시간 기준값이 계산서에 없음"); }
   if(has("G28")) put(28, /맞지 않음|LWL 표기 없음/.test(c.G28)?"검토":"확인");
   if(has("D29")) put(29, /추정/.test(c.H29||"")?"검토":"확인", /추정/.test(c.H29||"")?"도면 배관 표기로 추정한 값 — 장비일람표 구경과 대조 필요":"장비 사양 값");
   else if(has("H29")) put(29,null,"구경 자료 없음 — 장비일람표·시방서 필요");
@@ -78,9 +88,14 @@ function reviewJudge(c, ctx){
   // 시방서·전원 자료가 비어 수식이 판정을 못 내는 칸
   if(blank(V1.D53) && isNum(val("D51"))) put(53,"검토",`시방서 동력 값 없음 — 도면 ${fx.f0x(val("D51"))}kW만 확인됨, 시방서 대조 필요`);
   if(blank(V1.D53) && !isNum(val("D51")) && isNum(val("D52"))) put(53,"검토",`도면에 동력 표기 없음 — 시방서 ${fx.f0x(val("D52"))}kW만 확인됨, 기기일람표 대조 필요`);
-  if(blank(V1.D75) && isNum(val("D52")) && isNum(val("D60")) && isNum(val("D13"))){ const ld=(val("D52")+val("D60"))*val("D13"), cap=val("D74");
-    if(isNum(cap)) put(75, cap>=ld?"확인":"부적합", `도면 동력 없음 — 시방서 기준 (${fx.f0x(val("D52"))}+${fx.f0x(val("D60"))})×${val("D13")} = ${fx.f0x(ld)}kW ${cap>=ld?"≤":">"} 1차 전원 ${fx.f1(cap)}kW`);
-    else put(75,"검토",`도면 동력 없음 — 시방서 기준 (${fx.f0x(val("D52"))}+${fx.f0x(val("D60"))})×${val("D13")} = ${fx.f0x(ld)}kW, 1차 전원 용량 확인`); }
+  // 지당 포기장치·배출장치가 여러 대(판포 2대/지)면 부하 = (포기×대수 + 윈치×대수) × 지수 — 양식 수식 대신 값으로 기록
+  const nA=(X&&X.nAer)||1, nD=(X&&X.nDec)||1, multi=nA>1||nD>1;
+  const ex=(a,w)=> multi? `(${fx.f0x(a)}×${nA}+${fx.f0x(w)}×${nD})×${val("D13")}` : `(${fx.f0x(a)}+${fx.f0x(w)})×${val("D13")}`;
+  if(multi && isNum(val("D51")) && isNum(val("D60")) && isNum(val("D13"))){ const ld=(val("D51")*nA+val("D60")*nD)*val("D13"), cap=val("D74"); c.D75=Math.round(ld*100)/100;
+    put(75, isNum(cap)?(cap>=ld?"확인":"부적합"):"검토", `도면 기준 ${ex(val("D51"),val("D60"))} = ${fx.f0x(ld)}kW (지당 포기 ${nA}대·배출 ${nD}대)${isNum(cap)?` ${cap>=ld?"≤":">"} 1차 전원 ${fx.f1(cap)}kW`:", 1차 전원 용량 확인"}`); }
+  if(blank(c.D75) && blank(V1.D75) && isNum(val("D52")) && isNum(val("D60")) && isNum(val("D13"))){ const ld=(val("D52")*nA+val("D60")*nD)*val("D13"), cap=val("D74"); if(multi) c.D75=Math.round(ld*100)/100;
+    if(isNum(cap)) put(75, cap>=ld?"확인":"부적합", `도면 동력 없음 — 시방서 기준 ${ex(val("D52"),val("D60"))} = ${fx.f0x(ld)}kW ${cap>=ld?"≤":">"} 1차 전원 ${fx.f1(cap)}kW`);
+    else put(75,"검토",`도면 동력 없음 — 시방서 기준 ${ex(val("D52"),val("D60"))} = ${fx.f0x(ld)}kW, 1차 전원 용량 확인`); }
   if(isNum(V1.D75) && blank(V1.F75) && !isNum(val("D74"))) put(75,"검토",`동력부하 ${fx.f0x(V1.D75)}kW — 도면에서 1차 전원 용량을 찾지 못함, 전기 도면 확인`);
   if(has("H69") && blank(c.G69)) put(69,null,`${c.H69} — 인버터·PLC 이중화·LOP 면수는 시방서·제어반 도면 확인`);
   // 자동 판정이 불가능한 항목: 판정은 비워 두고(=담당자 확인) 확인할 내용을 적어 둠

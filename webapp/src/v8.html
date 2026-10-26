@@ -228,6 +228,7 @@ button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
     <div class="row"><label>유효수심 He <small>HWL 기준</small></label><input type="number" id="T" step="0.1"><span class="u">m</span></div>
     <div class="row"><label>모서리 모따기 <small>도면에 반응조 네 모서리 수직 헌치가 있을 때만 · 삼각형 1변 길이, 용적 = W×L − 2×변² · 계산서는 미반영(0)</small></label><input type="number" id="chamf" step="0.1"><span class="u">m</span></div>
     <div class="row"><label>반응조 지수 N</label><input type="number" id="nTank" step="1"><span class="u">지</span></div>
+    <div class="row"><label>지당 포기장치 대수 <small>한 지에 터빈 여러 대(예: 판포 2대) · 길이 방향으로 나눠 1대당 구역으로 판정</small></label><input type="number" id="nAer" step="1" min="1"><span class="u">대/지</span></div>
     <div class="row"><label>일일 사이클 수</label><input type="number" id="nc" step="1"><span class="u">회/d</span></div>
     <div class="row"><label>1일 폭기시간 Ta <small>1지 기준 · 인버터 운전 포함</small></label><input type="number" id="ta" step="0.1"><span class="u">hr/d</span></div>
     <div class="row"><label>설계 수온 <small>선택하면 Css가 수온별 표 값으로 바뀝니다</small></label><select id="temp"></select><span class="u">℃</span></div>
@@ -805,7 +806,7 @@ const CROWS = [["q","유입량 Q","m³/d",1],["y","Y (종속영양 수율)","–
 // 기본값: 4단계 T2 중수도 용량계산서(24,000㎥/일) — 예시
 const DEF_CASE = {q:[24751.8,24936.4,24362.0],bod:[376.9,449.3,191.5],ss:[441.2,525.9,224.0],tkn:[66.1,78.8,33.6],tn:[73.5,87.6,37.3],tp:[18.4,21.9,9.3],
                   x:[3800,4500,2500],xv:[2400,2900,1500],y:[0.35,0.40,0.30],ebod:[12,14,10],ess:[14,16,12],etn:[10,10,10],etp:[4,4,3],al:[0.88,0.83,0.93],be:[0.96,0.95,0.97]};
-const DEFAULTS = {eNH4:1.0,eON:1.0,shape:"rect",W:17,L:19,T:4.8,chamf:0,nTank:18,nc:4,ta:10.7,temp:12,DO:2.0,svi:150,buf:0.2,vtsf:1.1,
+const DEFAULTS = {eNH4:1.0,eON:1.0,shape:"rect",W:17,L:19,T:4.8,chamf:0,nTank:18,nAer:1,nc:4,ta:10.7,temp:12,DO:2.0,svi:150,buf:0.2,vtsf:1.1,
   kd20:0.12,thkd:1.07,fd:0.15,bcod:1.6,vssr:0.8,nbf:0.3,Ns:0.12,mun20:0.75,thmu:1.07,kn20:0.74,thkn:1.053,Yn:0.12,kdn20:0.08,thkdn:1.04,Ko:0.5,nitSF:1.5,
   cA:0.7,cK:2.5,cC:4.57,cB:0.07,Cs:8.84,Css:10.43,delta:1.1,codr:1.8,rbd:0.25,sP:5.65,sN:3.7,sC:1.4,alkIn:300,alkOut:50,
   caseSel:"max",corIn:129.2,sorIn:1256.9,o2target:"",h:1.0,sf:1.10,hz:"50",hrtT:26.9,siteName:"",printDate:""};
@@ -933,7 +934,9 @@ const cls3 = (v,okMin,warnMin) => v>=okMin?"ok":v>=warnMin?"warn":"bad";
 const td = (v,c="") => `<td class="${c}">${v}</td>`;
 
 function render(){
-  const G=geom(), vol=G.vol, S=G.S, T=G.T;
+  const G=geom(), vol=G.vol, T=G.T;
+  const nA=Math.max(1,Math.round(num("nAer")||1)), volU=vol/nA;
+  const S = (G.shape==="rect"&&nA>1) ? Math.min(Math.max(G.W,G.L)/nA, Math.min(G.W,G.L)) : G.S;   // 터빈 1대 구역의 짧은 변
   $("rowL").style.display = G.shape==="circ" ? "none" : "";
   $("lblW").firstChild.textContent = G.shape==="circ" ? "직경 Φ " : "가로 ";
   $("cssStd").textContent = f2(cssStd(num("temp")));
@@ -1007,7 +1010,7 @@ function render(){
 
   // ---- ⓪-1 ----
   const ST = T>0 ? S/T : 0;
-  $("S").textContent=f2(S); $("ST").textContent=f2(ST); $("vol").textContent=f1(vol);
+  $("S").textContent=f2(S); $("ST").textContent=f2(ST); $("vol").textContent=nA>1?`${f1(vol)} (1대당 ${f1(volU)})`:f1(vol);
   let stv, stc;
   if(ST>3.5){stv="S:T>3.5 — 보정판(hydraulic compensation plate) 필요";stc="warn";}
   else if(ST>=2.5){stv="최적 범위(2.5~3.5) — 이상 없음";stc="ok";}
@@ -1016,7 +1019,7 @@ function render(){
   const cross = ST>4 ? "불필요 (S:T>4)" : "필요 (터빈 저부 십자형 구조물)";
   const fb = G.shape==="circ" ? "필요 (원형)" : "불필요 (사각형)";
   $("stNote").className="note "+(stc==="ok"?"":stc);
-  $("stNote").innerHTML=`<b>S:T 판정</b> ${stv}<br>십자형 구조물: ${cross} · 정류판: ${fb}`;
+  $("stNote").innerHTML=`<b>S:T 판정</b> ${stv}<br>십자형 구조물: ${cross} · 정류판: ${fb}`+(nA>1?`<br>지당 ${nA}대 — 길이 방향으로 ${nA}등분한 1대 구역(${f1(Math.max(G.W,G.L)/nA)} × ${f1(Math.min(G.W,G.L))} m) 기준으로 판정`:"");
 
   // ---- ⓪-2 COR ----
   const m=state.corMode;
@@ -1036,7 +1039,8 @@ function render(){
   if(m==="mb"){ COR=R?R.COR:NaN; alphaUsed=num("al_"+ci); $("corSrc").textContent=`물질수지 ${CASES[ci]} 케이스 (${$("caseSel").value==="max"?"최대 자동":"선택"})`; }
   else if(m==="direct"){ COR=num("corIn"); alphaUsed=num("al_"+ci); $("corSrc").textContent="직접 입력값"; }
   else { COR=num("ta")>0?num("sorIn")/num("ta"):NaN; alphaUsed=num("al_"+ci); $("corSrc").textContent="SOR ÷ Ta (δ 미적용)"; }
-  $("cor").textContent=f1(COR);
+  const CORt=COR; if(nA>1) COR=COR/nA;   // 이후 터빈 선정·동력은 1대 기준
+  $("cor").textContent = nA>1 ? `${f1(CORt)} (1대 ${f1(COR)})` : f1(COR);
   [...$("mbTbl").rows,...$("nitTbl").rows,...$("oxTbl").rows,...$("cbTbl").rows].forEach(tr=>{ for(let k=1;k<=3;k++){ const c=tr.cells[k]; if(c&&c.tagName==="TD") c.style.fontWeight = (m==="mb"&&k-1===ci)?"600":""; } });
   if(state.corBaselineVol===null) state.corBaselineVol=vol;
   const volDrift = state.corBaselineVol>0 ? Math.abs(vol-state.corBaselineVol)/state.corBaselineVol : 0;
@@ -1053,7 +1057,7 @@ function render(){
   const o2t=num("o2target");
   let recBoth=null, recO2=null, rows="";
   for(const s of SIZES){const c=CAT[s];
-    const vOk=vol>=c.vmin&&vol<=c.vmax, oOk=o2t>=c.o2min&&o2t<=c.o2max, both=vOk&&oOk;
+    const vOk=volU>=c.vmin&&volU<=c.vmax, oOk=o2t>=c.o2min&&o2t<=c.o2max, both=vOk&&oOk;
     if(both&&!recBoth) recBoth=s; if(oOk&&!recO2) recO2=s;
     rows+=`<tr><td>${s}</td><td>${c.vmin}~${c.vmax}</td><td class="${vOk?'ok':'bad'}">${vOk?'적합':'부적합'}</td><td>${c.o2min}~${c.o2max}</td><td class="${oOk?'ok':'bad'}">${oOk?'OK':'NG'}</td><td><span class="tag ${both?'ok':'bad'}">${both?'적합':'부적합'}</span></td></tr>`;}
   $("recTbl").innerHTML=`<tr><th>규격</th><th>용적 m³</th><th>용적</th><th>O₂ kg/h</th><th>O₂</th><th>종합</th></tr>${rows}`;
@@ -1159,13 +1163,13 @@ function render(){
   $("alphaTbl").innerHTML=at;
 
   // ---- 요약 ----
-  $("hSize").textContent=size;
+  $("hSize").textContent = nA>1 ? `${size} × ${nA}대/지` : size;
   $("hP").innerHTML=`${f1(P)}<small>kW</small>`; $("hT").innerHTML=`${f0(Tqd)}<small>N·m</small>`;
   // 추천 모터: 설계 소요동력(여유율 적용) 이상인 표준 기어드모터 중 가장 작은 것 (포기장치용 기어드모터 목록 기준)
   { const MOTOR_KW=[1.5,2.2,3,4,5.5,7.5,11,15,18.5,22,30,37,45,55,75,90,110]; const mk=MOTOR_KW.find(k=>k>=Pd-1e-9);
     $("hMotor").innerHTML = !isFinite(Pd)||Pd<=0 ? "–" : mk!=null ? `${mk}<small>kW</small><div class="sub" style="font-size:12px;font-weight:400;opacity:.75">설계 소요동력 ${f1(Pd)} kW 이상</div>` : `<span style="font-size:18px">110 kW 초과</span><div class="sub" style="font-size:12px;font-weight:400;opacity:.75">설계 소요동력 ${f1(Pd)} kW — 별도 선정</div>`; }
   $("hRpm").innerHTML=`${f1(ratedV)} / ${f1(rpm)}<small>rpm</small>`;
-  $("hO2").innerHTML=`${f1(o2now)}<small>kgO₂/h</small>`; $("hCor").innerHTML=`${f1(COR)}<small>kgO₂/h</small>`;
+  $("hO2").innerHTML=`${f1(o2now)}<small>kgO₂/h</small>`; $("hCor").innerHTML = nA>1 ? `${f1(COR)}<small>kgO₂/h·대 (지당 ${f1(CORt)})</small>` : `${f1(COR)}<small>kgO₂/h</small>`;
   const al=[];
   if(!recBoth) al.push(["bad","적합 규격 없음 — "+rn]);
   if(o2now<o2t*0.98) al.push(["bad",`운전점 산소전달량(${f1(o2now)})이 목표(${f1(o2t)})에 못 미칩니다. ${state.mode==="C"&&hz<60?`60Hz로 올리면 ${f1(o2At(c,ratedV))}kgO₂/h까지 가능합니다.`:'규격·명판 RPM 또는 폭기시간(Ta)을 재검토하세요.'}`]);

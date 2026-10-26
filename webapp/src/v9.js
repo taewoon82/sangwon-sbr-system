@@ -10,7 +10,7 @@ const CDN = {
 };
 const V9 = { xls:null, xlsName:"", dwg:null, dwgName:"", over:{}, pick:{}, lib:null, mod:null };
 // 십자구조물 표준 치수 (터빈 형식별, m) — 확인된 형식만. 나머지는 1250형 비례 추정
-const CROSS = { 1250:{w:2.5,h:1.2,t:0.2,ok:true} };
+const CROSS = { 900:{w:2.5,h:1.2,t:0.25,ok:true}, 1250:{w:2.5,h:1.2,t:0.2,ok:true}, 1600:{w:3.0,h:1.5,t:0.25,ok:true}, 2000:{w:3.0,h:1.5,t:0.25,ok:true}, 2500:{w:3.4,h:1.5,t:0.25,ok:true} };   // 2026-10-26 사용자 확정 (900·1600·2000·2500 두께 0.25)
 function crossDims(turbMm){ const c=CROSS[turbMm]; if(c) return {...c}; const k=(turbMm||1250)/1250; return {w:Math.round(2.5*k*10)/10, h:Math.round(1.2*k*10)/10, t:0.2, ok:false}; }
 const V9KEY = "turbine_sizing_v9_dwg";
 const n2 = v => v==null||!isFinite(v) ? "–" : (Math.round(v*100)/100).toLocaleString(undefined,{maximumFractionDigits:2});
@@ -30,24 +30,30 @@ function capExtra(wb){
     if(m){ out.cap=tn(m[1]); const s=t.match(/^\s*\d+(?:\.\d+)*\s+(.+?)\s*-\s*[\d,]/); if(s) out.site=s[1].replace(/\s*용량\s*계산서\s*$/,"").trim(); break; }
   }
   const secs=[]; rows.forEach((r,i)=>{ const a=r&&r[0]!=null?String(r[0]).trim():""; const m=a.match(/^\d\)\s*(.+)$/); if(m) secs.push({i,name:m[1]}); });
-  const range = re => { const k=secs.findIndex(s=>re.test(s.name)); return k<0?null:[secs[k].i, k+1<secs.length?secs[k+1].i:rows.length]; };
+  const range = re => { const ks=secs.map((s,k)=>re.test(s.name)?k:-1).filter(k=>k>=0); if(!ks.length) return null; const k= ks.length>1 ? (ks.find(k=>/증설|신설/.test(secs[k].name))??ks[0]) : ks[0]; if(ks.length>1) out.multiSec=(out.multiSec||[]).concat(secs[k].name); return [secs[k].i, k+1<secs.length?secs[k+1].i:rows.length]; };
   const valAfter = (r,ci) => { for(let c=ci+1;c<r.length;c++){ const v=r[c]; if(typeof v==="number"&&isFinite(v)) return {v,c}; if(typeof v==="string"&&/^\s*-?\d[\d,]*(\.\d+)?\s*$/.test(v)) return {v:tn(v),c}; } return null; };
   const find = (rg,re,from) => { if(!rg) return null; for(let i=(from??rg[0]);i<rg[1];i++){ const r=rows[i]||[]; for(let c=0;c<r.length;c++){ if(r[c]!=null && re.test(String(r[c]))){ const f=valAfter(r,c); if(f) return {v:f.v, at:name+"!"+XLSX.utils.encode_cell({r:i,c:f.c})}; } } } return null; };
   const spec = rg => { if(!rg) return null; for(let i=rg[0];i<rg[1];i++) if((rows[i]||[]).some(v=>v!=null&&/규\s*격/.test(String(v)))) return i; return rg[0]; };
   const tank = (rg,pfx) => { if(!rg) return; const s=spec(rg);
     out[pfx+"W"]=find(rg,/폭\s*\(W\)/,s); out[pfx+"L"]=find(rg,/길\s*이\s*\(L\)/,s); out[pfx+"He"]=find(rg,/유효\s*수심/,s); out[pfx+"N"]=find(rg,/▶\s*지\s*수/,s); };
   tank(range(/유량\s*조정조/),"eq");
-  { const eqR=range(/유량\s*조정조/); if(eqR){ out.eqT=find(eqR,/체류\s*시간\s*\(T\)/); out.eqVe=find(eqR,/▶\s*유효\s*용량/); } }
+  { const eqR=range(/유량\s*조정조/); if(eqR){ out.eqT=find(eqR,/체류\s*시간\s*\(T\)/); out.eqVe=find(eqR,/▶\s*유효\s*용량/); out.eqVm=find(eqR,/실\s*유효\s*용량\s*\(V\)|필요\s*용량/); } }
   const dec = range(/배출\s*장치/);
   tank(dec,"ef");
   out.decMin = find(dec,/배출\s*시간/);
   { const vmRow=find(dec,/\(Vm\)|필요용량/); if(vmRow) out.efVm=vmRow; }
   out.decQ = find(dec,/설계\s*유입량\s*\(Q\)/);
-  const q = find(dec,/QIN\s*=/); if(q) out.qin = {v:q.v<1? q.v*1000 : q.v, at:q.at};
+  const unitAfter=(rg,re)=>{ if(!rg) return null; for(let i=rg[0];i<rg[1];i++){ const r=rows[i]||[]; for(let c=0;c<r.length;c++){ if(r[c]!=null&&re.test(String(r[c]))){ const f=valAfter(r,c); if(f) return {v:f.v, u:String(r[f.c+1]??""), at:name+"!"+XLSX.utils.encode_cell({r:i,c:f.c})}; } } } return null; };
+  const q = unitAfter(dec,/QIN\s*=/);
+  if(q){ const m3s=/m3\s*\/\s*s|㎥\s*\/\s*s/i.test(q.u); out.qin = {v:(m3s||q.v<1)? Math.round(q.v*1000*10)/10 : q.v, at:q.at}; if(/계열/.test(q.u)) out.qin.per="계열"; }
+  if(dec){ for(let i=dec[0];i<dec[1];i++){ const r=rows[i]||[]; for(let c=0;c<r.length-1;c++){ const v=r[c], u=String(r[c+1]??""); if(typeof v==="number"&&v>0&&/m3\s*\/\s*sec\s*\/\s*대|㎥\s*\/\s*s\s*\/\s*대/i.test(u)){ out.qin={v:Math.round(v*1000*10)/10, at:name+"!"+XLSX.utils.encode_cell({r:i,c}), per:"대"}; i=dec[1]; break; } } } }
   if(dec){ for(let i=dec[0];i<dec[1];i++){ const r=rows[i]||[]; if(!r.some(v=>v!=null&&/Decanter\s*설치|배출장치\s*설치/i.test(String(v)))) continue;
       r.forEach((v,c)=>{ if(v==null) return; const s=String(v).trim(); let m;
         if((m=s.match(/^A\s*(\d{2,3})$/))) out.decSize={v:+m[1], at:name+"!"+XLSX.utils.encode_cell({r:i,c})};
-        if((m=s.match(/^(\d+(?:\.\d+)?)\s*kw$/i))) out.winch={v:+m[1], at:name+"!"+XLSX.utils.encode_cell({r:i,c})}; }); } }
+        if((m=s.match(/^(\d+(?:\.\d+)?)\s*kw$/i))) out.winch={v:+m[1], at:name+"!"+XLSX.utils.encode_cell({r:i,c})}; }); }
+    if(!out.decSize||!out.winch){ for(let i=dec[0];i<dec[1];i++){ const r=rows[i]||[]; r.forEach((v,c)=>{ if(v==null) return; const s=String(v).trim(); let m;
+        if(!out.decSize&&(m=s.match(/^A\s*(\d{2,3})$/))) out.decSize={v:+m[1], at:name+"!"+XLSX.utils.encode_cell({r:i,c})};
+        if(!out.winch&&(m=s.match(/^(\d+(?:\.\d+)?)\s*kw$/i))) out.winch={v:+m[1], at:name+"!"+XLSX.utils.encode_cell({r:i,c})}; }); } } }
   const sbrR = range(/SBR|생물\s*반응조/);
   if(sbrR){ for(let i=sbrR[0];i<sbrR[1];i++){ const r=rows[i]||[]; if(!r.some(v=>v!=null&&/VF\s*\/\s*VT/.test(String(v)))) continue;
       for(let k=i;k<=i+2&&k<sbrR[1];k++){ const vs=(rows[k]||[]).filter(v=>typeof v==="number"&&v>0.15&&v<0.85); if(vs.length){ out.vfvt={min:Math.min(...vs), vals:[...new Set(vs)], at:name+"!"+(k+1)}; break; } } if(out.vfvt) break; } }
@@ -56,6 +62,11 @@ function capExtra(wb){
   if(out.o2 && aer){ for(let i=aer[0];i<aer[1];i++){ const r=rows[i]||[]; if(!r.some(v=>v!=null&&/▶\s*용\s*량/.test(String(v)))) continue;
       const vs=[]; r.forEach((v,c)=>{ if(typeof v==="number"&&isFinite(v)&&r.slice(c+1,c+3).some(u=>u!=null&&/kg\s*O/i.test(String(u)))) vs.push({v,c}); });
       if(vs.length>1){ const mx=vs.reduce((a,b)=>b.v>a.v?b:a); out.o2={v:mx.v, at:name+"!"+XLSX.utils.encode_cell({r:i,c:mx.c}), cases:vs.map(o=>o.v)}; } break; } }
+  // 지당 포기장치 대수: 같은 케이스의 kgO2/hr/지 ÷ kgO2/hr/대 (판포처럼 한 지에 2대)
+  if(aer){ const numBefore=(r,re)=>{ for(let c=1;c<r.length;c++){ if(r[c]!=null&&re.test(String(r[c]))){ for(let k=c-1;k>=0;k--){ const v=r[k]; if(typeof v==="number"&&isFinite(v)) return v; } } } return null; };
+    let a=null,b=null; for(let i=aer[0];i<aer[1];i++){ const r=rows[i]||[]; if(a==null){ const v=numBefore(r,/kgO2?\s*\/\s*hr?\s*\/\s*지/i); if(v) a=v; } if(b==null){ const v=numBefore(r,/kgO2?\s*\/\s*hr?\s*\/\s*대/i); if(v) b=v; } }
+    if(a>0&&b>0){ const n=Math.round(a/b); if(n>=2&&n<=6&&Math.abs(a/b-n)<0.05) out.nAer=n; } }
+  if(dec){ for(let i=dec[0];i<dec[1];i++){ const r=rows[i]||[]; const c=r.findIndex(v=>v!=null&&/가동\s*대수/.test(String(v))); if(c<0) continue; const f=valAfter(r,c); if(f&&f.v>=1&&f.v<=6){ out.nDec=Math.round(f.v); break; } } }
   return out;
 }
 
@@ -99,7 +110,7 @@ function model(){
   const sz=($("hSize")?.textContent||"").match(/(\d{3,4})/);
   add("포기장치 · 배출장치","turb","포기장치 터빈 (웹앱 선정)","Ø mm", sz?+sz[1]:null, null,{dtxt:D&&D.aerator?`${D.aerator.code} ${D.aerator.name}`:"", xsrc:"웹앱 선정",noCmp:1});
   add("포기장치 · 배출장치","kw","설계 소요동력 (웹앱, 여유율 적용)","kW", designKW(), null,{xsrc:"웹앱 산정",noCmp:1});
-  add("포기장치 · 배출장치","o2","산소공급능력 (지당, 최대 케이스)","kgO₂/h", val(X.o2), null,{noCmp:1, xsrc:X.o2&&X.o2.cases?`케이스별 ${X.o2.cases.join(" / ")}`:""});
+  add("포기장치 · 배출장치","o2",`산소공급능력 (${(X.nAer||1)>1?"1대당":"지당"}, 최대 케이스)`,"kgO₂/h", val(X.o2), null,{noCmp:1, xsrc:X.o2&&X.o2.cases?`케이스별 ${X.o2.cases.join(" / ")}`:""});
   const dp=D&&D.decPipe;
   add("포기장치 · 배출장치","dsz","배출장치 구경","A", val(X.decSize), dp?dp.a:null,{dtxt:D&&D.decanter?`${D.decanter.code} ${D.decanter.name}`:"", dnote:dp?`반응조 주변 처리수(TW) 배관 표기 ${dp.n}곳${Object.keys(dp.sizes).length>1?` (그 외 ${Object.entries(dp.sizes).filter(([a])=>+a!==dp.a).map(([a,n])=>a+"A "+n+"곳").join(", ")})`:""}${D.decanter?` · ${D.decanter.code} ${D.decanter.name}`:""}`:""});
   add("포기장치 · 배출장치","qin","배출유량 (QIN)","L/s", val(X.qin), null,{noCmp:1});
@@ -517,7 +528,7 @@ async function makeXlsx(){
     const cmpTxt=k=>{ const r=rows.find(x=>x.key===k); return r&&r.st==="일치"?`용량계산서 = 도면 (${n2(r.xls)})`: r&&r.st==="불일치"?`용량계산서 ${n2(r.xls)} / 도면 ${n2(r.dwg)} 불일치`:""; };
     set("H37",cmpTxt("W")); set("H38",cmpTxt("L")); set("H40",cmpTxt("He")); set("H22",cmpTxt("eqW")); set("H23",cmpTxt("eqL")); set("H24",cmpTxt("eqHe"));
     const he=rows.find(x=>x.key==="He"); if(he&&he.st) { set("F42", he.st==="일치"?"확인":"검토"); set("H42",cmpTxt("He")); }
-    const tb=A(rows,"turb"); set("D49",tb); set("G49",`웹앱 선정 ${($("hSize").textContent||"").trim()} · 설계 소요동력 ${n2(designKW())} kW · 운전점 산소전달 ${($("hO2").textContent||"").replace(/kgO₂\/h/,"").trim()} kgO₂/h`);
+    const tb=A(rows,"turb"); set("D49",tb); { const pu=(+($("nAer")||{}).value||1)>1?"/대":""; set("G49",`웹앱 선정 ${($("hSize").textContent||"").trim()} · 설계 소요동력 ${n2(designKW())} kW${pu} · 운전점 산소전달 ${($("hO2").textContent||"").replace(/kgO₂\/h/,"").trim()} kgO₂/h${pu}`); }
     set("D50",A(rows,"o2")); set("H51",`웹앱 설계 소요동력 ${n2(designKW())} kW (참고)`);
     if(D){ set("D56",D.hoist?"있음":"없음"); if(D.hoist){ set("F56","확인"); set("G56",`${D.hoist.code} ${hoistName(D.hoist.name)}`); } else set("F56","검토"); }
     set("D58",A(rows,"qin")); set("D59",A(rows,"dsz")); set("D60",A(rows,"winch")); set("D61",A(rows,"dt")); set("D62",A(rows,"decQ"));
@@ -635,7 +646,8 @@ async function makeXlsx(){
     if(/\.xls[xm]?$/i.test(file.name) && window.XLSX){
       try{ V9.xls=capExtra(XLSX.read(new Uint8Array(await file.arrayBuffer()),{type:"array"})); V9.xlsName=file.name; V9.over={};
         const base=file.name.replace(/\.(xlsx?|xlsm)$/i,""), sn=$("siteName");
-        if(V9.xls.site && (!sn.value.trim() || sn.value.trim()===base)){ sn.value=V9.xls.site; sn.dispatchEvent(new Event("input")); } }catch(e){ V9.xls=null; }
+        if(V9.xls.site && (!sn.value.trim() || sn.value.trim()===base)){ sn.value=V9.xls.site; sn.dispatchEvent(new Event("input")); }
+        { const na=$("nAer"); if(na){ na.value=V9.xls.nAer||1; if(typeof render==="function") render(); } } }catch(e){ V9.xls=null; }
     }
     renderCmp9();
   };
