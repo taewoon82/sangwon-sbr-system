@@ -20,4 +20,5 @@
 
 ## 자료 위치
 - 웹앱: `webapp/` (원본 `webapp/src/`, `build.py`로 묶음) · PC 프로그램: `desktop/` (업데이트 zip은 vendor 포함 필수)
+- 운전 로직 플로우차트(draw.io, 15p): `operation-logic/`
 - 기준값: `criteria/` · 현장별: `sites/` · 3D 형상: `modeling-3d/` · 유동해석: `cfd/`
