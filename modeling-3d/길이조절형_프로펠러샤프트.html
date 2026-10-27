@@ -1,0 +1,350 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>길이조절형 PROPELLER SHAFT</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: 좌측 3D 스테이지 + 우측 도면 사양 패널, 모바일은 상하 적층 */
+:root{
+  --bg:#f2f4f6; --panel:#ffffff; --stage:#e7ebef; --fg:#1c232a; --muted:#5b6670; --line:#d3d9df;
+  --accent:#3f6e9c; --accent-soft:#dbe7f3; --amber:#9a6a1c; --amber-soft:#f6ead2; --violet:#6a5a92; --violet-soft:#e9e4f4;
+  --warn:#a3452f;
+  --f-body:"IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#13171b; --panel:#1a1f25; --stage:#0f1215; --fg:#e3e8ec; --muted:#97a2ac; --line:#2b333b;
+  --accent:#9cc0e4; --accent-soft:#22313f; --amber:#e3bf7c; --amber-soft:#3a3020; --violet:#bfb0e6; --violet-soft:#2c2740;
+  --warn:#e79a85; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#13171b; --panel:#1a1f25; --stage:#0f1215; --fg:#e3e8ec; --muted:#97a2ac; --line:#2b333b;
+  --accent:#9cc0e4; --accent-soft:#22313f; --amber:#e3bf7c; --amber-soft:#3a3020; --violet:#bfb0e6; --violet-soft:#2c2740;
+  --warn:#e79a85; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:14px;line-height:1.55}
+.wrap{display:grid;grid-template-columns:minmax(0,1fr) 400px;gap:0;min-height:100vh}
+.stage{position:sticky;top:0;height:100vh;background:var(--stage);min-height:560px;border-right:1px solid var(--line);align-self:start}
+#view{position:absolute;inset:0}
+#view canvas{display:block}
+.hud{position:absolute;left:max(16px,env(safe-area-inset-left,0px));top:16px;display:flex;flex-direction:column;gap:2px;pointer-events:none}
+.hud .dwg{font-family:var(--f-mono);font-size:11px;letter-spacing:.08em;color:var(--muted)}
+.hud h1{margin:0;font-size:20px;font-weight:700;letter-spacing:-.01em;text-wrap:balance}
+.legend{position:absolute;left:max(16px,env(safe-area-inset-left,0px));bottom:16px;display:flex;flex-wrap:wrap;gap:6px 12px;font-size:12px;color:var(--muted);pointer-events:none}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+.hint{position:absolute;right:16px;bottom:16px;font-size:11px;color:var(--muted);pointer-events:none}
+.tag{font-size:11.5px;color:var(--fg);white-space:nowrap;transform:translateX(52%);pointer-events:none;display:flex;align-items:center;gap:6px}
+.tag::before{content:"";width:18px;height:1px;background:var(--muted);flex:none}
+.tag b{font-weight:600}
+.tag.dim{transform:none;font-family:var(--f-mono);font-size:11px;background:var(--panel);border:1px solid var(--line);padding:1px 6px;border-radius:3px}
+.tag.dim::before{display:none}
+.tag.left{transform:translateX(-52%);flex-direction:row-reverse}
+aside{background:var(--panel);padding-block:20px 28px;padding-left:max(20px,env(safe-area-inset-left,0px));padding-right:max(20px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:22px;min-width:0}
+section h2{margin:0 0 10px;font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.read{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.read div{border:1px solid var(--line);border-radius:4px;padding:8px 10px}
+.read span{display:block;font-size:11px;color:var(--muted)}
+.read strong{font-family:var(--f-mono);font-size:18px;font-weight:500;font-variant-numeric:tabular-nums}
+.read strong small{font-size:11px;color:var(--muted);margin-left:2px}
+.slider{margin-top:12px}
+.slider label{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-bottom:4px}
+input[type=range]{width:100%;accent-color:var(--accent)}
+.scale{display:flex;justify-content:space-between;font-family:var(--f-mono);font-size:10.5px;color:var(--muted)}
+.btns{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
+button{font:inherit;font-size:12.5px;padding:6px 11px;border-radius:4px;border:1px solid var(--line);background:transparent;color:var(--fg);cursor:pointer}
+button[aria-pressed="true"]{background:var(--accent-soft);border-color:var(--accent);color:var(--accent);font-weight:600}
+button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.tbl{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+th,td{text-align:left;vertical-align:top;padding:6px 6px;border-bottom:1px solid var(--line)}
+th{font-weight:600;color:var(--muted);font-size:11.5px}
+td:first-child{white-space:nowrap;color:var(--muted)}
+td.num,th.num{text-align:right;font-family:var(--f-mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+.new{color:var(--accent);font-weight:500}
+ul.notes{margin:0;padding-left:16px;display:flex;flex-direction:column;gap:6px;font-size:12.5px}
+ul.notes li::marker{color:var(--muted)}
+.flag{color:var(--warn);font-weight:600}
+.src{font-size:11.5px;color:var(--muted);border-top:1px solid var(--line);padding-top:12px}
+@media (max-width:900px){
+  .wrap{grid-template-columns:1fr}
+  .stage{position:relative;height:66vh;min-height:420px;border-right:0;border-bottom:1px solid var(--line)}
+  .hint{display:none}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div class="wrap">
+  <div class="stage">
+    <div id="view" aria-label="길이조절형 프로펠러 샤프트 3D 모델"></div>
+    <div class="hud">
+      <span class="dwg">SB-MS-006 / SB-MS-007 · ③ PROPELLER SHAFT 개선안</span>
+      <h1>길이조절형 PROPELLER SHAFT</h1>
+    </div>
+    <div class="legend">
+      <span><i style="background:#9fbcd8"></i>중공축 (신규)</span>
+      <span><i style="background:#bfb2dc"></i>조정축 (신규)</span>
+      <span><i style="background:#e2c48c"></i>로크너트 (신규)</span>
+      <span><i style="background:#a7adb3"></i>기존 부품</span>
+    </div>
+    <div class="hint">드래그 회전 · 휠 확대 · 우클릭 이동</div>
+  </div>
+
+  <aside>
+    <section>
+      <h2>길이 조절</h2>
+      <div class="read">
+        <div><span>전장 L</span><strong id="rL">600<small>mm</small></strong></div>
+        <div><span>축 삽입 x</span><strong id="rE">510<small>mm</small></strong></div>
+        <div><span>노출 나사</span><strong id="rX">20<small>mm</small></strong></div>
+      </div>
+      <div class="slider">
+        <label for="len"><span>전장 L (FLANGE 상면 ~ 축 하단)</span><span>기존 도면 600</span></label>
+        <input id="len" type="range" min="600" max="1050" step="5" value="600">
+        <div class="scale"><span>600 (최단)</span><span>825</span><span>1050 (최장)</span></div>
+      </div>
+      <div class="btns">
+        <button id="bSec" aria-pressed="false">단면 보기</button>
+        <button id="bExp" aria-pressed="false">분해 보기</button>
+        <button id="bHand" aria-pressed="true">나사 LH</button>
+        <button id="bSpin" aria-pressed="false">자동 회전</button>
+        <button id="bReset">시점 초기화</button>
+      </div>
+    </section>
+
+    <section>
+      <h2>기존 대비 변경 내용</h2>
+      <div class="tbl"><table>
+        <thead><tr><th>구분</th><th>기존 (SB-MS-007)</th><th>개선안</th></tr></thead>
+        <tbody>
+          <tr><td>축 형식</td><td>STS304 환봉 일체 Φ35 × 600L</td><td class="new">중공축 + 조정축 나사 결합 (텔레스코픽)</td></tr>
+          <tr><td>상부</td><td>Φ40 × 80L, FLANGE 용접</td><td class="new">STS304 40A 파이프 (Φ48.6 × 3.7t) × 455L, FLANGE 용접</td></tr>
+          <tr><td>너트 보스</td><td>—</td><td class="new">Φ48.6 × 60L 환봉, 내경나사 M30×2 LH 관통, 파이프 하단 맞대기 용접</td></tr>
+          <tr><td>조정축</td><td>Φ35 × 465L</td><td class="new">M30×2 LH 전나사 530L + Φ30 × 10L 칼라</td></tr>
+          <tr><td>프로펠러부</td><td>Φ25 × 40L, 키 8×7, M10 탭</td><td>동일 (조정축 하단에 가공)</td></tr>
+          <tr><td>고정</td><td>—</td><td class="new">로크너트 M30×2 LH (15t) + 길이 확정 후 관통핀</td></tr>
+          <tr><td>전장</td><td>600 고정 (NOTE 1: 현장여건 따라 변경)</td><td class="new">600 ~ 1,050 현장 조정</td></tr>
+        </tbody>
+      </table></div>
+    </section>
+
+    <section>
+      <h2>비틀림 강도 (운전 110 rpm)</h2>
+      <div class="tbl"><table>
+        <thead><tr><th>단면</th><th class="num">Zp (mm³)</th><th class="num">허용토크 (N·m)</th></tr></thead>
+        <tbody>
+          <tr><td>기존 Φ35 환봉</td><td class="num">8,418</td><td class="num">337</td></tr>
+          <tr><td>40A 파이프 Φ48.6 / Φ41.2</td><td class="num">10,898</td><td class="num">436</td></tr>
+          <tr><td>너트 보스 Φ48.6 / Φ30</td><td class="num">19,267</td><td class="num">771</td></tr>
+          <tr><td>조정축 나사 골경 Φ27.55</td><td class="num">4,106</td><td class="num">164</td></tr>
+          <tr><td>프로펠러부 Φ25 키홈 (기존 동일)</td><td class="num">3,068</td><td class="num">92</td></tr>
+        </tbody>
+      </table></div>
+      <p style="margin:8px 0 0;font-size:12px;color:var(--muted)">허용전단 40 MPa (STS304), 키홈 계수 0.75 적용. 지배 단면은 기존과 같은 Φ25부 (92 N·m ≈ 1.06 kW @110 rpm)이므로 기존 대비 강도 저하 없음.</p>
+    </section>
+
+    <section>
+      <h2>강성 · 위험속도</h2>
+      <div class="tbl"><table>
+        <thead><tr><th>조건</th><th class="num">강성 (N/mm)</th><th class="num">처짐 @100 N</th><th class="num">위험속도 (rpm)</th></tr></thead>
+        <tbody>
+          <tr><td>기존 Φ35 × 600</td><td class="num">250</td><td class="num">0.40</td><td class="num">2,746</td></tr>
+          <tr><td>개선안 L = 600</td><td class="num">448</td><td class="num">0.22</td><td class="num">4,213</td></tr>
+          <tr><td>개선안 L = 1,050</td><td class="num">53</td><td class="num">1.89</td><td class="num">1,310</td></tr>
+          <tr><td>(참고) Φ35 환봉을 1,050으로 연장</td><td class="num">42</td><td class="num">2.38</td><td class="num">999</td></tr>
+        </tbody>
+      </table></div>
+      <p style="margin:8px 0 0;font-size:12px;color:var(--muted)">FLANGE 고정 단계축 외팔보, 프로펠러 끝단 집중하중. 프로펠러 질량 2 kg (계산 약 1.3 kg에 여유 반영), 축 등가질량 포함. 최장 조건에서도 운전 110 rpm 대비 약 12배로 공진 여유 충분함.</p>
+    </section>
+
+    <section>
+      <h2>설계 확인 사항</h2>
+      <ul class="notes">
+        <li><span class="flag">나사 LH 적용</span>: 위에서 볼 때 반시계방향 회전 → 프로펠러 저항토크가 조정축을 조이는 방향(축이 올라가는 방향)으로 작용함. 이 힘은 로크너트가 보스 하면에서 받음.</li>
+        <li><span class="flag">풀림 방지</span>: 길이 확정 후 보스·조정축 관통 스프링핀(Φ8) 현장 가공 권장. 로크너트 단독 사용은 지양함.</li>
+        <li>나사 물림은 보스 길이 60 (≈2D)으로 길이와 무관하게 일정함. 조정축 상단은 파이프 내부(ID Φ41.2)에서 비지지 상태임.</li>
+        <li>최장 조건에서 처짐이 커지므로 조립 후 프로펠러 끝단 흔들림(런아웃) 측정 기준 필요함.</li>
+        <li>프로펠러 반경방향 수력하중 자료 없어 굽힘응력은 미검토. 하중값 확보 시 보스 용접부 굽힘 검토 추가 필요.</li>
+        <li>파이프 규격, 보스·나사 길이는 제안 치수임. 프로펠러 날개 형상은 단순화 표현.</li>
+      </ul>
+    </section>
+
+    <p class="src">기준 치수 출처: 첨부 DWG SB-MS-006 부품표, SB-MS-007 SHAFT 상세도 (PROPELLER SHAFT Φ35×600L, FLANGE Φ152×15t, PCD125 4-Φ14, PROPELLER Φ177×60H, 보스 Φ56.5 / 보어 Φ25 / 키 8×7 / 와셔 Φ35×6t / M10×35).</p>
+  </aside>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/renderers/CSS2DRenderer.js"></script>
+<script>
+(function(){
+const P=2.0;                       // M30x2 pitch
+const TUBE_TOP=-15, BOSS_TOP=-470, TUBE_BOT=-530;  // 40A 파이프 455L + 너트 보스 60L
+const THREAD_DEPTH=60, ROD_THREAD=530, ROD_LEN=580;
+const S={L:600, sec:false, exp:0, expT:0, hand:-1, spin:false};
+const eOf=L=>1110-L;   // 축 삽입 길이 x (보스 하면 ~ 조정축 상단)
+
+const host=document.getElementById('view');
+const renderer=new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.localClippingEnabled=true;
+host.appendChild(renderer.domElement);
+const labelR=new THREE.CSS2DRenderer();
+labelR.domElement.style.position='absolute';labelR.domElement.style.inset='0';labelR.domElement.style.pointerEvents='none';
+host.appendChild(labelR.domElement);
+
+const scene=new THREE.Scene();
+const camera=new THREE.PerspectiveCamera(32,1,1,10000);
+const controls=new THREE.OrbitControls(camera,renderer.domElement);
+controls.enableDamping=true;
+const HOME={pos:new THREE.Vector3(1150,-260,1600),tgt:new THREE.Vector3(0,-540,0)};
+function home(){camera.position.copy(HOME.pos);controls.target.copy(HOME.tgt);controls.update();}
+home();
+
+scene.add(new THREE.HemisphereLight(0xffffff,0x8090a0,0.75));
+const d1=new THREE.DirectionalLight(0xffffff,0.85);d1.position.set(400,500,600);scene.add(d1);
+const d2=new THREE.DirectionalLight(0xffffff,0.35);d2.position.set(-500,-200,-300);scene.add(d2);
+
+const clip=new THREE.Plane(new THREE.Vector3(-1,0,0),0);
+const mats=[];
+function mat(c,m=.45,r=.38){const x=new THREE.MeshStandardMaterial({color:c,metalness:m,roughness:r,side:THREE.DoubleSide});mats.push(x);return x;}
+const M={tube:mat(0x9fbcd8),rod:mat(0xbfb2dc),nut:mat(0xe2c48c),sts:mat(0xb3b9bf),cast:mat(0x9aa1a8,.35,.55),prop:mat(0x8f979f,.35,.5),dark:mat(0x6c747c,.4,.5)};
+
+// ---------- geometry helpers ----------
+function lathe(pts,seg=96){return new THREE.LatheGeometry(pts.map(p=>new THREE.Vector2(p[0],p[1])),seg);}
+// helical thread surface; x=r sinθ, z=r cosθ  → hand=+1 is right-hand
+function thread(rMin,rMaj,y0,y1,hand,segU=72,perP=10){
+  const nv=Math.max(2,Math.ceil(Math.abs(y1-y0)/P*perP));
+  const pos=new Float32Array((nv+1)*(segU+1)*3);let k=0;
+  for(let j=0;j<=nv;j++){const y=y0+(y1-y0)*j/nv;
+    for(let i=0;i<=segU;i++){const th=2*Math.PI*i/segU;
+      let ph=(y/P-hand*th/(2*Math.PI))%1;if(ph<0)ph+=1;
+      let t=1-Math.abs(2*ph-1);t=Math.min(1,Math.max(0,(t-.125)/.75));
+      const r=rMin+(rMaj-rMin)*t;
+      pos[k++]=r*Math.sin(th);pos[k++]=y;pos[k++]=r*Math.cos(th);}}
+  const idx=[];for(let j=0;j<nv;j++)for(let i=0;i<segU;i++){const a=j*(segU+1)+i,b=a+segU+1;idx.push(a,b,a+1,b,b+1,a+1);}
+  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(pos,3));g.setIndex(idx);g.computeVertexNormals();return g;}
+function extrudeY(shape,depth){const g=new THREE.ExtrudeGeometry(shape,{depth,bevelEnabled:false,curveSegments:48});g.rotateX(-Math.PI/2);return g;}
+function label(html,cls){const d=document.createElement('div');d.className='tag'+(cls?' '+cls:'');d.innerHTML=html;return new THREE.CSS2DObject(d);}
+
+// ---------- upper: flange + hollow shaft (fixed) ----------
+const upper=new THREE.Group();scene.add(upper);
+{ // flange Φ152 x 15t, PCD125 4-Φ14 @45°, 중심 Φ26
+  const s=new THREE.Shape();s.absarc(0,0,76,0,Math.PI*2);
+  for(let k=0;k<4;k++){const a=Math.PI/4+k*Math.PI/2,h=new THREE.Path();h.absarc(62.5*Math.cos(a),62.5*Math.sin(a),7,0,Math.PI*2,true);s.holes.push(h);}
+  const c=new THREE.Path();c.absarc(0,0,20.6,0,Math.PI*2,true);s.holes.push(c);
+  const f=new THREE.Mesh(extrudeY(s,15),M.cast);f.position.y=-15;upper.add(f);
+  upper.add(new THREE.Mesh(lathe([[13,0],[49.75,0],[49.75,2.5],[13,2.5]]),M.cast)); // 스피곳 Φ99.5
+  const w=new THREE.Mesh(new THREE.TorusGeometry(24.8,3.2,10,72),M.dark);w.rotation.x=Math.PI/2;w.position.y=-15.5;upper.add(w); // 용접 비드
+  // 40A 파이프 Φ48.6 x 3.7t
+  upper.add(new THREE.Mesh(lathe([[20.6,BOSS_TOP],[24.3,BOSS_TOP],[24.3,TUBE_TOP],[20.6,TUBE_TOP],[20.6,BOSS_TOP]]),M.tube));
+  // 너트 보스 Φ48.6 x 60L, 내경나사 M30x2
+  upper.add(new THREE.Mesh(lathe([[15.15,TUBE_BOT],[24.3,TUBE_BOT],[24.3,BOSS_TOP],[15.15,BOSS_TOP]]),M.tube));
+  const w2=new THREE.Mesh(new THREE.TorusGeometry(24.6,2.4,10,72),M.dark);w2.rotation.x=Math.PI/2;w2.position.y=BOSS_TOP;upper.add(w2);
+}
+let tubeThread=null;
+const lbTube=label('<b>① 중공축</b> STS 40A (Φ48.6 × 3.7t) × 455L');lbTube.position.set(70,-240,0);upper.add(lbTube);
+const lbInt=label('너트 보스 Φ48.6 × 60L · 내경나사 M30×2 LH');lbInt.position.set(70,-445,0);upper.add(lbInt);
+const lbFl=label('FLANGE Φ152 × 15t · PCD125 4-Φ14');lbFl.position.set(110,-7,0);upper.add(lbFl);
+
+// ---------- adjusting rod (translates + spins) ----------
+const rodG=new THREE.Group(), rodSpin=new THREE.Group();rodG.add(rodSpin);scene.add(rodG);
+rodSpin.add(new THREE.Mesh(lathe([[0,0],[13.77,0]]),M.rod));
+rodSpin.add(new THREE.Mesh(lathe([[13.77,-ROD_THREAD],[15,-ROD_THREAD],[15,-540],[12.5,-540],[12.5,-580],[5,-580],[5,-545],[0,-545]]),M.rod));
+{const key=new THREE.Mesh(new THREE.BoxGeometry(7,36,8),M.dark);key.position.set(12.5,-561,0);rodSpin.add(key);}
+let rodThread=null;
+const lbRod=label('<b>② 조정축</b> M30×2 LH 전나사 × 530L');rodG.add(lbRod);
+
+// ---------- lock nut ----------
+const nutG=new THREE.Group(), nutSpin=new THREE.Group();nutG.add(nutSpin);scene.add(nutG);
+{const s=new THREE.Shape();for(let k=0;k<6;k++){const a=k*Math.PI/3,R=26.56;k?s.lineTo(R*Math.cos(a),R*Math.sin(a)):s.moveTo(R*Math.cos(a),R*Math.sin(a));}s.closePath();
+ const h=new THREE.Path();h.absarc(0,0,15.15,0,Math.PI*2,true);s.holes.push(h);
+ nutSpin.add(new THREE.Mesh(extrudeY(s,15),M.nut));}
+let nutThread=null;
+const lbNut=label('<b>③ 로크너트</b> M30×2 LH · 15t');lbNut.position.set(70,7,0);nutG.add(lbNut);
+
+// ---------- propeller (rod-local coordinates, rod bottom = -300) ----------
+const propG=new THREE.Group();scene.add(propG);
+propG.add(new THREE.Mesh(lathe([[12.5,-540],[28.25,-540],[28.25,-600],[19.55,-600],[19.55,-580],[12.5,-580]]),M.prop));
+{const s=new THREE.Shape();s.moveTo(24,-30);s.lineTo(70,-34);s.quadraticCurveTo(88.5,-32,88.5,0);s.quadraticCurveTo(88.5,30,70,32);s.lineTo(24,28);s.closePath();
+ const bg=new THREE.ExtrudeGeometry(s,{depth:4,bevelEnabled:false,curveSegments:16});bg.translate(0,0,-2);
+ for(let k=0;k<3;k++){const b=new THREE.Mesh(bg,M.prop);b.rotation.x=THREE.MathUtils.degToRad(55);const g=new THREE.Group();g.add(b);g.position.y=-570;g.rotation.y=k*2*Math.PI/3;propG.add(g);}}
+const lbProp=label('PROPELLER Φ177 × 60H · 키 8×7 (기존)');lbProp.position.set(110,-580,0);propG.add(lbProp);
+const hwG=new THREE.Group();scene.add(hwG);
+hwG.add(new THREE.Mesh(lathe([[5.5,-586],[17.5,-586],[17.5,-580],[5.5,-580]]),M.sts)); // 와셔 Φ35x6t
+{const hx=new THREE.Mesh(new THREE.CylinderGeometry(9.8,9.8,6.4,6),M.sts);hx.position.y=-589.2;hwG.add(hx);
+ const sh=new THREE.Mesh(new THREE.CylinderGeometry(5,5,35,24),M.sts);sh.position.y=-568.5;hwG.add(sh);}
+
+function buildThreads(){
+  [tubeThread,rodThread,nutThread].forEach(m=>{if(m){m.parent.remove(m);m.geometry.dispose();}});
+  tubeThread=new THREE.Mesh(thread(13.92,15.15,TUBE_BOT,TUBE_BOT+THREAD_DEPTH,S.hand),M.tube);upper.add(tubeThread);
+  rodThread=new THREE.Mesh(thread(13.77,15.0,-ROD_THREAD,0,S.hand),M.rod);rodSpin.add(rodThread);
+  nutThread=new THREE.Mesh(thread(13.92,15.15,0,15,S.hand,72,12),M.nut);nutSpin.add(nutThread);
+}
+buildThreads();
+
+// ---------- dimension lines ----------
+const dimMat=new THREE.LineBasicMaterial({color:0x5b6670});
+const dims=new THREE.Group();scene.add(dims);
+const dimL=new THREE.Line(new THREE.BufferGeometry(),dimMat),dimE=new THREE.Line(new THREE.BufferGeometry(),dimMat);dims.add(dimL,dimE);
+const lbL=label('','dim'),lbE=label('','dim');dims.add(lbL,lbE);
+function seg(line,pts){line.geometry.dispose();line.geometry=new THREE.BufferGeometry().setFromPoints(pts.map(p=>new THREE.Vector3(p[0],p[1],0)));}
+function drawDims(e){
+  const yb=-S.L,x=-115,t=6;
+  seg(dimL,[[-80,0],[x-t,0],[x,0],[x,yb],[x-t,yb],[-20,yb],[x,yb],[x,0]]);
+  lbL.position.set(x,yb*0.3,0);lbL.element.textContent='L = '+S.L;
+  const xe=-58,y0=TUBE_BOT,y1=TUBE_BOT+e;
+  seg(dimE,[[-30,y0],[xe-t,y0],[xe,y0],[xe,y1],[xe-t,y1],[-18,y1],[xe,y1]]);
+  lbE.position.set(xe,(y0+y1)/2,0);lbE.element.textContent='x = '+e;
+}
+
+// ---------- state update ----------
+function update(){
+  const e=eOf(S.L), x=S.expT;
+  const D=x*(e+80);
+  const rodY=TUBE_BOT+e-D;
+  rodG.position.y=rodY;
+  rodSpin.rotation.y=(S.hand*2*Math.PI*rodY/P)%(2*Math.PI);
+  const nutY=TUBE_BOT-15-x*150;
+  nutG.position.y=nutY;nutSpin.rotation.y=(S.hand*2*Math.PI*nutY/P)%(2*Math.PI);
+  propG.position.y=rodY-x*70; hwG.position.y=rodY-x*130;
+  lbRod.position.set(70,(-e-15-ROD_THREAD)/2+x*e/2,0);lbRod.visible=(ROD_THREAD-e)>90||x>0.3;
+  dims.visible=x<0.02;lbL.visible=lbE.visible=dims.visible;
+  if(dims.visible)drawDims(e);
+  document.getElementById('rL').firstChild.nodeValue=S.L;
+  document.getElementById('rE').firstChild.nodeValue=e;
+  document.getElementById('rX').firstChild.nodeValue=ROD_THREAD-e;
+}
+
+// ---------- UI ----------
+const $=id=>document.getElementById(id);
+$('len').addEventListener('input',ev=>{S.L=+ev.target.value;update();});
+function tog(id,key,on,off){const b=$(id);b.addEventListener('click',()=>{S[key]=!S[key];b.setAttribute('aria-pressed',S[key]);if(on)on(S[key]);});}
+tog('bSec','sec',v=>{mats.forEach(m=>{m.clippingPlanes=v?[clip]:[];m.needsUpdate=true;});
+  [lbInt].forEach(l=>l.element.style.opacity=1);});
+tog('bExp','exp',v=>{});
+tog('bSpin','spin',v=>{controls.autoRotate=v;controls.autoRotateSpeed=1.2;});
+$('bHand').addEventListener('click',ev=>{S.hand*=-1;ev.target.textContent='나사 '+(S.hand>0?'RH':'LH');ev.target.setAttribute('aria-pressed',S.hand<0);buildThreads();update();});
+$('bReset').addEventListener('click',home);
+
+// ---------- theme ----------
+function applyTheme(){const cs=getComputedStyle(document.documentElement);
+  renderer.setClearColor(new THREE.Color(cs.getPropertyValue('--stage').trim()||'#e7ebef'));
+  dimMat.color.set(cs.getPropertyValue('--muted').trim()||'#5b6670');}
+applyTheme();
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change',applyTheme);
+new MutationObserver(applyTheme).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+
+function resize(){const w=host.clientWidth,h=host.clientHeight;renderer.setSize(w,h);labelR.setSize(w,h);camera.aspect=w/h;
+  camera.updateProjectionMatrix();}
+new ResizeObserver(resize).observe(host);resize();
+
+const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+update();
+(function loop(){
+  const tgt=S.exp?1:0;
+  if(Math.abs(S.expT-tgt)>1e-3){S.expT+= reduce?(tgt-S.expT):(tgt-S.expT)*0.08;update();}
+  controls.update();renderer.render(scene,camera);labelR.render(scene,camera);
+  requestAnimationFrame(loop);
+})();
+})();
+</script>
+
+</body></html>
