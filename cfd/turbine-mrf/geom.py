@@ -81,9 +81,10 @@ def meridional(u, v):
     Lb = 1.0   # 경로 파라미터 0~1: 0~0.8 벨, 0.8~1 채널 바깥 끝(r=R1, ZF->ZS)
     if v <= 0.8:
         ss = (v / 0.8) * np.pi / 2
-        rw, zw = R0 + (R1 - R0) * (1 - np.cos(ss)) - 0.004, ZB + G * np.sin(ss) + 0.004
+        # 날개를 몸체 벽 속으로 9 mm 묻음 (틈이 있으면 격자에 얇은 틈 셀이 생겨 VOF 발산)
+        rw, zw = bell(ss, 0.009)
     else:
-        rw, zw = R1, ZF + (v - 0.8) / 0.2 * F
+        rw, zw = R1, ZF - 0.009 + (v - 0.8) / 0.2 * (F + 0.009)
     rl, zl = RL0 + (RL1 - RL0) * v, ZB + (ZS - ZB) * v
     return rl + (rw - rl) * u, zl + (zw - zl) * u
 
@@ -103,8 +104,10 @@ for k in range(NB):
     B = np.stack([CX + r * np.cos(t + dt), CY + r * np.sin(t + dt), z], -1)
     write_stl(f"blade{k:02d}", solid_from_two(A, B))
     # 덮개날개: 앞전선(u=0)을 따라 +θ(회전방향)로 폭 w(v)
-    rl, zl = r[:, 0], z[:, 0]; tl = t[:, 0]
-    w = 0.10 * vv ** 1.5 + 0.002
+    # 폭 20 mm 이상인 구간(v >= 0.35)부터 둠: 앞전 하단의 mm 단위 쐐기는 격자에 얇은 틈 셀을 만듦
+    kc = vv >= 0.35
+    rl, zl = r[kc, 0], z[kc, 0]; tl = t[kc, 0]
+    w = 0.10 * vv[kc] ** 1.5
     ws = np.linspace(0, 1, 6)
     # 앞전선 위 평판, 앞전선에 수직(자오면 법선) 방향 두께
     dr, dz = np.gradient(rl), np.gradient(zl); L = np.hypot(dr, dz)

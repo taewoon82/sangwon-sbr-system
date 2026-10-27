@@ -11,7 +11,7 @@ os.makedirs(f"{case}/system", exist_ok=True); os.makedirs(f"{case}/0.orig", exis
 for f in glob.glob(f"{gdir}/*.stl"):
     shutil.copy(f, f"{case}/constant/triSurface/")
 names = sorted(os.path.basename(f)[:-4] for f in glob.glob(f"{gdir}/*.stl"))
-imp = [n for n in names if n.startswith(("blade", "cover", "body"))]
+imp = [n for n in names if n.startswith(("blade", "cover", "body", "turbine"))]
 fixed = ["walls", "haunch", "cross"] + [n for n in names if n == "stator"]
 H = "FoamFile { version 2.0; format ascii; class %s; object %s; }\n"
 def w(path, cls, obj, body):
@@ -30,8 +30,11 @@ geo = "\n".join(f" {n} {{ type triSurfaceMesh; file \"{n}.stl\"; }}" for n in na
 lvl = {"haunch": "(1 1)", "cross": "(2 2)", "stator": "(4 4)"}
 ref = "\n".join(f"  {n} {{ level {lvl.get(n, '(4 4)')}; patchInfo {{ type wall; }} }}" for n in names)
 dist = "\n".join(f"  {n} {{ mode distance; levels ((0.012 4) (0.05 3)); }}" for n in imp)
+feats = " ".join(f'{{ file "{n}.eMesh"; level {4 if n not in ("haunch","cross") else 2}; }}' for n in names)
+w("system/surfaceFeatureExtractDict", "dictionary", "surfaceFeatureExtractDict", "\n".join(
+    f'{n}.stl {{ extractionMethod extractFromSurface; extractFromSurfaceCoeffs {{ includedAngle 150; }} writeObj no; }}' for n in names))
 w("system/snappyHexMeshDict", "dictionary", "snappyHexMeshDict", f"""
-castellatedMesh true; snap true; addLayers false;
+castellatedMesh true; snap false; addLayers false;
 geometry {{
 {geo}
  mrf {{ type searchableCylinder; point1 (5.25 5.25 3.05); point2 (5.25 5.25 3.62); radius 0.72; }}
@@ -41,7 +44,7 @@ geometry {{
 castellatedMeshControls {{
  maxLocalCells 3000000; maxGlobalCells 6000000; minRefinementCells 10; maxLoadUnbalance 0.1;
  nCellsBetweenLevels 2; resolveFeatureAngle 30; allowFreeStandingZoneFaces true;
- features ();
+ features ( {feats} );
  refinementSurfaces {{
 {ref}
  }}
@@ -53,9 +56,9 @@ castellatedMeshControls {{
  }}
  locationInMesh (2.0 2.0 2.0);
 }}
-snapControls {{ nSmoothPatch 3; tolerance 2.0; nSolveIter 50; nRelaxIter 5; nFeatureSnapIter 0; implicitFeatureSnap false; explicitFeatureSnap false; }}
+snapControls {{ nSmoothPatch 3; tolerance 2.0; nSolveIter 50; nRelaxIter 5; nFeatureSnapIter 10; implicitFeatureSnap false; explicitFeatureSnap true; multiRegionFeatureSnap false; }}
 addLayersControls {{ relativeSizes true; layers {{}}; expansionRatio 1.2; finalLayerThickness 0.3; minThickness 0.1; nGrow 0; featureAngle 60; nRelaxIter 3; nSmoothSurfaceNormals 1; nSmoothNormals 3; nSmoothThickness 10; maxFaceThicknessRatio 0.5; maxThicknessToMedialRatio 0.3; minMedialAxisAngle 90; nBufferCellsNoExtrude 0; nLayerIter 50; }}
-meshQualityControls {{ maxNonOrtho 65; maxBoundarySkewness 20; maxInternalSkewness 4; maxConcave 80; minVol 1e-13; minTetQuality 1e-15; minArea -1; minTwist 0.02; minDeterminant 0.001; minFaceWeight 0.05; minVolRatio 0.01; minTriangleTwist -1; nSmoothScale 4; errorReduction 0.75; relaxed {{ maxNonOrtho 75; }} }}
+meshQualityControls {{ maxNonOrtho 65; maxBoundarySkewness 20; maxInternalSkewness 4; maxConcave 60; minVol 1e-13; minTetQuality 1e-15; minArea -1; minTwist 0.02; minDeterminant 0.001; minFaceWeight 0.05; minVolRatio 0.01; minTriangleTwist -1; nSmoothScale 4; errorReduction 0.75; relaxed {{ maxNonOrtho 75; }} }}
 mergeTolerance 1e-6;
 """)
 w("system/topoSetDict", "dictionary", "topoSetDict", """
@@ -70,7 +73,7 @@ regions ( boxToCell {{ box (-1 -1 -1) (11.5 11.5 {ZW}); fieldValues ( volScalarF
 """)
 nonrot = "(" + " ".join(fixed + ["atmosphere"]) + ")"
 w("constant/MRFProperties", "dictionary", "MRFProperties", f"""
-rotor {{ cellZone rotor; active yes; nonRotatingPatches {nonrot}; origin (5.25 5.25 0); axis (0 0 1); omega {omega:.5f}; }}
+rotor {{ cellZone rotor; active yes; nonRotatingPatches {nonrot}; origin (5.25 5.25 0); axis (0 0 1); omega table ((0 0) (2 {omega:.5f}) (1000 {omega:.5f})); }}
 """)
 w("constant/transportProperties", "dictionary", "transportProperties", """
 phases (water air);
@@ -79,12 +82,13 @@ air { transportModel Newtonian; nu 1.48e-05; rho 1.2; }
 sigma 0.07;
 """)
 w("constant/g", "uniformDimensionedVectorField", "g", "dimensions [0 1 -2 0 0 0 0]; value (0 0 -9.81);\n")
+w("constant/hRef", "uniformDimensionedScalarField", "hRef", f"dimensions [0 1 0 0 0 0 0]; value {ZW};\n")
 w("constant/turbulenceProperties", "dictionary", "turbulenceProperties", "simulationType RAS; RAS { RASModel kOmegaSST; turbulence on; printCoeffs off; }\n")
 w("system/controlDict", "dictionary", "controlDict", f"""
 application interFoam; startFrom latestTime; startTime 0; stopAt endTime; endTime {tend};
-deltaT 0.0005; writeControl adjustableRunTime; writeInterval 0.5; purgeWrite 0;
+deltaT 1e-5; writeControl adjustableRunTime; writeInterval 0.5; purgeWrite 0;
 writeFormat ascii; writePrecision 7; writeCompression off; timeFormat general; timePrecision 6;
-runTimeModifiable true; adjustTimeStep yes; maxCo 1.5; maxAlphaCo 1.0; maxDeltaT 0.01;
+runTimeModifiable true; adjustTimeStep yes; maxCo 0.8; maxAlphaCo 0.5; maxDeltaT 0.01;
 functions {{}}
 """)
 w("system/fvSchemes", "dictionary", "fvSchemes", """
@@ -109,7 +113,7 @@ solvers {
  p_rghFinal { $p_rgh; relTol 0; tolerance 1e-6; }
  "(U|k|omega).*" { solver smoothSolver; smoother symGaussSeidel; tolerance 1e-6; relTol 0; }
 }
-PIMPLE { momentumPredictor no; nOuterCorrectors 1; nCorrectors 2; nNonOrthogonalCorrectors 1; }
+PIMPLE { momentumPredictor yes; nOuterCorrectors 1; nCorrectors 3; nNonOrthogonalCorrectors 1; }
 relaxationFactors { equations { ".*" 1; } }
 """)
 w("system/decomposeParDict", "dictionary", "decomposeParDict", "numberOfSubdomains 2; method simple; coeffs { n (2 1 1); }\n")
