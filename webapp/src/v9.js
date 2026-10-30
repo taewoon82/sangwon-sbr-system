@@ -112,7 +112,9 @@ function model(){
   add("포기장치 · 배출장치","kw","설계 소요동력 (웹앱, 여유율 적용)","kW", designKW(), null,{xsrc:"웹앱 산정",noCmp:1});
   add("포기장치 · 배출장치","o2",`산소공급능력 (${(X.nAer||1)>1?"1대당":"지당"}, 최대 케이스)`,"kgO₂/h", val(X.o2), null,{noCmp:1, xsrc:X.o2&&X.o2.cases?`케이스별 ${X.o2.cases.join(" / ")}`:""});
   const dp=D&&D.decPipe;
-  add("포기장치 · 배출장치","dsz","배출장치 구경","A", val(X.decSize), dp?dp.a:null,{dtxt:D&&D.decanter?`${D.decanter.code} ${D.decanter.name}`:"", dnote:dp?`반응조 주변 처리수(TW) 배관 표기 ${dp.n}곳${Object.keys(dp.sizes).length>1?` (그 외 ${Object.entries(dp.sizes).filter(([a])=>+a!==dp.a).map(([a,n])=>a+"A "+n+"곳").join(", ")})`:""}${D.decanter?` · ${D.decanter.code} ${D.decanter.name}`:""}`:""});
+  const dsDec=((V9.drawSpec&&V9.drawSpec.R&&V9.drawSpec.R.items)||[]).find(e=>e.type==="dec"&&e.size);
+  if(dsDec) add("포기장치 · 배출장치","dsz","배출장치 구경","A", val(X.decSize), dsDec.size,{dnote:`도면 장비목록표 ${dsDec.tag} ${dsDec.name} Ø${dsDec.size}`});
+  else add("포기장치 · 배출장치","dsz","배출장치 구경","A", val(X.decSize), dp?dp.a:null,{dtxt:D&&D.decanter?`${D.decanter.code} ${D.decanter.name}`:"", dnote:dp?`반응조 주변 처리수(TW) 배관 표기 ${dp.n}곳${Object.keys(dp.sizes).length>1?` (그 외 ${Object.entries(dp.sizes).filter(([a])=>+a!==dp.a).map(([a,n])=>a+"A "+n+"곳").join(", ")})`:""}${D.decanter?` · ${D.decanter.code} ${D.decanter.name}`:""}`:""});
   add("포기장치 · 배출장치","qin","배출유량 (QIN)","L/s", val(X.qin), null,{noCmp:1});
   add("포기장치 · 배출장치","decQ","배출 대상 유량 (잉여슬러지 인발 후)","㎥/d", val(X.decQ), null,{noCmp:1});
   add("포기장치 · 배출장치","winch","전동윈치 동력","kW", val(X.winch), null,{noCmp:1});
@@ -281,6 +283,69 @@ function shiftEnt(e, dx, seen){ const go=(o,k)=>{ if(!o||typeof o!=="object"||se
     if(typeof o.x==="number"&&typeof o.y==="number"&&!/extrusion|normal|direction/i.test(k||"")) o.x+=dx;
     for(const [kk,v] of Object.entries(o)) if(v&&typeof v==="object") go(v,kk); }; go(e,""); }
 async function loadDwg(file){ return loadDwgs([file]); }
+// ---------- DWG 장비목록표(기기일람표) 읽기: '동력(kW)'·'상용'·'예비' 머리글 위치로 행을 묶어 OCR 표와 같은 형식으로 만든 뒤 equipFromTables로 해석 ----------
+function dwgEquip(byFile){
+  const tables=[];
+  const N=s=>String(s||"").replace(/㏊/g,"").replace(/㎏/g,"kg").replace(/ℓ/g,"L").replace(/㎾/g,"kW").replace(/㎜/g,"mm").replace(/\s+/g," ").trim();
+  for(const [fname, ti0] of Object.entries(byFile||{})){
+    const ti=ti0.map(t=>({...t, s:N(t.s)}));
+    const near=(a,re,dx0,dx1,dy)=>ti.filter(t=>re.test(t.s.replace(/\s/g,"")) && t.x>a.x+dx0 && t.x<a.x+dx1 && Math.abs(t.y-a.y)<dy);
+    for(const H of ti.filter(t=>t.s.replace(/\s/g,"")==="동력")){
+      if(!near(H,/^\(kW\)$/i,-6,6,9).length) continue;
+      const S1=near(H,/^상용$/,5,40,12)[0], S2=near(H,/^예비$/,5,60,12).filter(t=>!S1||t.x>S1.x+3)[0], F=near(H,/^형식및규격$|^형식$|^규격$/,-160,-15,9)[0];
+      if(!F) continue; const hh=H.h||3.2;
+      const fx=Math.min(...ti.filter(t=>/^형식\s*[:：]/.test(t.s) && t.x>F.x-80 && t.x<F.x+10 && t.y>H.y).map(t=>t.x), F.x-40);
+      const xL=fx-130, xR=(S2||S1||H).x+25, yTop=H.y+hh;
+      const nextH=ti.filter(t=>t!==H && t.s.replace(/\s/g,"")==="동력" && Math.abs(t.x-H.x)<30 && t.y>H.y+20).map(t=>t.y); const yBot=nextH.length?Math.min(...nextH)-hh:H.y+800;
+      const inT=t=>t.x>xL && t.x<xR && t.y>yTop && t.y<yBot;
+      const TAG=/^(?:\d?[A-Z]{0,3}M-?\d{3}[A-Z]?(?:\s*[A-Z](?:[\/~][A-Z])*)?|-\d{1,2})$/;
+      const tags=ti.filter(t=>inT(t) && t.x<fx-3 && TAG.test(t.s)).sort((a,b)=>a.y-b.y);
+      if(tags.length<2) continue;
+      let parent=null; const rows=[];
+      for(const tg of tags){ const y0=tg.y, row=t=>Math.abs(t.y-y0)<hh*0.45;
+        let tag=tg.s.replace(/\s+/g,""); if(/^-\d/.test(tag)){ if(!parent) continue; tag=parent.tag+tag; parent.hasSub=true; }
+        const name=ti.filter(t=>inT(t)&&row(t)&&t.x>tg.x+1&&t.x<fx-2&&t!==tg&&/[가-힣]/.test(t.s)).sort((a,b)=>a.x-b.x).map(t=>t.s).join(" ");
+        const val=(X)=>{ if(!X) return ""; const v=ti.find(t=>inT(t)&&row(t)&&Math.abs(t.x-X.x)<5); return v?v.s:""; };
+        const r={tag, y:y0, name, kw:val(H), q1:val(S1), q2:val(S2), lines:[]};
+        rows.push(r); if(!/^-\d/.test(tg.s.replace(/\s+/g,""))) parent=r;
+      }
+      // 형식·용량 줄: 형식 열(fx ~ 동력 열 앞) 안에서 가장 가까운 행에 붙임
+      for(const t of ti.filter(t=>inT(t) && t.x>=fx-3 && t.x<H.x-6)){ let best=null, bd=1e9; for(const r of rows){ const d=Math.abs(t.y-r.y); if(d<bd){bd=d;best=r;} } if(best&&bd<hh*3.2) best.lines.push(t); }
+      const out={rows:[{cells:["기기번호","명칭","형식","용량","동력","상용","예비","계"]}]};
+      for(const r of rows){ if(r.hasSub) continue;   // 하위 행(-1 포기장치, -2 배출장치)이 있으면 묶음 행은 건너뜀
+        const ls=r.lines.sort((a,b)=>a.y-b.y).map(t=>t.s); const form=ls.filter(l=>/^형식/.test(l)).map(l=>l.replace(/^형식\s*[:：]\s*/,"")).join(" ");
+        const cap=ls.filter(l=>!/^형식/.test(l)).map(l=>l.replace(/^(?:용량|조규격|통기량|규격)\s*[:：]\s*/,"")).join(" ");
+        const q1=+(r.q1||0)||0, q2=/^\d+$/.test(r.q2)?+r.q2:0;
+        out.rows.push({cells:[r.tag, r.name, form, cap, r.kw, String(q1||""), String(q2), String(q1+q2)]}); }
+      tables.push({rows:out.rows, file:fname});
+    }
+  }
+  if(!tables.length) return {items:[], qtyRows:[]};
+  const files=[...new Set(tables.map(t=>t.file))];
+  const r=equipFromTables(tables, files.join(", ")+" 장비목록표");
+  for(const e of r.items){ e.src=`도면 장비목록표 ${e.tag}`; }
+  return r;
+}
+
+// ---------- 십자구조물 규격 · 배출장치 슬리브 (토목·기계 어느 도면이든) ----------
+function crossSleeveFill(c){
+  const n=v=>typeof v==="number"&&isFinite(v);
+  const P=V9.textPool||[]; const has=re=>P.filter(t=>re.test(t.s)); const found=(V9.dnote&&V9.dnote.found)||{};
+  const turb=+String(c.D49??"").replace(/[^\d]/g,"")||null; const cr=turb?crossDims(turb):null;
+  if(cr){ const std=`${cr.ok?"표준":"추정(1250형 비례)"} 십자구조물 Ø${turb}형 ${cr.w} × ${cr.w} × ${cr.h}(H) m · 두께 ${cr.t} m`;
+    c.D44=`${cr.w}×${cr.w}×${cr.h}`; c.E44="m";
+    const tail=found[44]?"도면 표기와 규격·두께·레벨 대조":"설계도면(토목·기계)에 십자구조물 표기 없음 — 토목도면에서 규격·두께·레벨 확인 필요";
+    c.G44=[std, c.G44, tail].filter(Boolean).join(" / "); c.F44="검토"; }
+  const dsz=n(c.D59)?c.D59:null; const elN=new Set(V9.elecNames||[]); const gen=has(/SLEEVE|슬리브|스리브/i).filter(t=>!elN.has(String(t.src).split("#")[0]) && !/보호\s*도체|접지|전선관|케이블|C형\s*슬리브/.test(t.s)); const p47=[];
+  if(dsz) p47.push(`배출장치 구경 ${dsz}A → 반응조 벽체 관통 슬리브 ${dsz}A 이상 필요`);
+  if(!found[47]) p47.push(gen.length?`도면에는 일반 주기만 있음(‘${gen[0].s.slice(0,34)}…’ ${gen[0].src}) — 배출장치 슬리브 구경·BOP 상세 없음`:"도면에 배출장치 슬리브 표기 없음");
+  p47.push("BOP 레벨은 토목·기계 단면도 확인");
+  c.G47=[c.G47, ...p47].filter(Boolean).join(" / "); c.F47="검토";
+  const civ=has(/토목\s*배관\s*슬리브|슬리브[^,.]{0,20}토목|토목[^,.]{0,20}슬리브/);
+  if(civ.length){ const old=c.G48&&!/별도 명시 없음|담당자 확인/.test(c.G48)?c.G48:(c.G48||"").replace(/ · 슬리브 scope는 시방서에 별도 명시 없음/,"");
+    c.G48=[old, `도면 주기상 ‘토목배관 슬리브’ → 슬리브는 토목 시공분으로 판단, 기계배관 플랜지 규격 협의 필요 (${civ[0].src})`].filter(Boolean).join(" / "); c.F48="검토"; }
+}
+
 async function loadDwgs(files, pdfDraws){ pdfDraws=pdfDraws||[];
   const st=$("v9stat"); const sec=$("v9sec");
   try{
@@ -300,7 +365,7 @@ async function loadDwgs(files, pdfDraws){ pdfDraws=pdfDraws||[];
         if(!dwg) throw new Error("읽지 못함 — 오토캐드에서 DXF로 저장 후 다시");
         const db=lib.convert(dwg);
         const ents=dwgExpand(db.entities||[], (db.tables&&db.tables.BLOCK_RECORD&&db.tables.BLOCK_RECORD.entries)||[], 3);
-        { const ti=elTextItems(ents); tpAdd(file.name, ti.map(t=>t.s)); const sc=elScore(ti.map(t=>t.s)); if(sc>=40 && sc>ti.length*0.02){ elecD.push({name:file.name, items:ti}); elecN.push(file.name); continue; } }   // 전기·계측 도면은 따로
+        { const ti=elTextItems(ents); tpAdd(file.name, ti.map(t=>t.s)); (V9.dwgTexts=V9.dwgTexts||{})[file.name]=ti; const sc=elScore(ti.map(t=>t.s)); if(sc>=40 && sc>ti.length*0.02){ elecD.push({name:file.name, items:ti}); elecN.push(file.name); continue; } }   // 전기·계측 도면은 따로
         if(i>0){ const seen=new WeakSet(); for(const e of ents) shiftEnt(e, i*1e9, seen); }
         for(const e of ents) all.push(e);
         ok.push(file.name);
@@ -322,6 +387,8 @@ async function loadDwgs(files, pdfDraws){ pdfDraws=pdfDraws||[];
       }catch(e){ bad.push(`${pf.name}: ${e.message||e}`); }
     }
     if(!ok.length) throw new Error(bad.join(" / "));
+    if(!V9.drawSpec){ const sel={}; for(const n of ok) if(V9.dwgTexts&&V9.dwgTexts[n]) sel[n]=V9.dwgTexts[n];
+      try{ const de=dwgEquip(sel); if(de.items.length){ V9.drawSpec={name:"도면 장비목록표", R:{items:de.items, facts:{}}}; V9.drawEquipQty=de.qtyRows; } }catch(e){ console.warn("장비목록표 읽기 오류", e); } }
     const R=dwgExtract(all, []);
     if(V9.drawEquipQty && (!R.equipTable||!R.equipTable.length)){ R.equipTable=V9.drawEquipQty; const it=(V9.drawSpec&&V9.drawSpec.R.items)||[]; const by=t=>{ const e=it.find(x=>x.type===t); return e?R.equipTable.find(q=>q.code===e.tag)||null:null; };
       R.eqAer=by("aer"); R.eqDec=by("dec"); R.eqFeed=by("feed"); R.eqEff=by("eff"); R.eqWas=by("was"); }
@@ -607,7 +674,8 @@ async function makeXlsx(){
     try{ elRefresh(); elecFill(c, V9.elec); }catch(e){ console.warn("전기도면 반영 오류", e); }
     try{ elecLoadsFill(c, V9.elec); }catch(e){ console.warn("전기 동력 대조 오류", e); }
     try{ (V9.elecPdf||[]).forEach(sh=>tpAdd(sh.name+"#"+(sh.page||""), elRows(sh).map(x=>x.s))); V9.dnote=designNotesFill(c); }catch(e){ console.warn("공종별 표기 찾기 오류", e); }
-    try{ reviewJudge(c, {rows, X, SP:V9.spec, D, designKW:designKW()}); }catch(e){ console.warn("판정 작성 오류", e); }
+    try{ crossSleeveFill(c); }catch(e){ console.warn("십자구조물·슬리브 오류", e); }
+    try{ reviewJudge(c, {rows, X, SP:V9.spec, D, DS:V9.drawSpec, designKW:designKW()}); }catch(e){ console.warn("판정 작성 오류", e); }
     let cache={}; try{ cache={"검토서": tplEval(c)}; }catch(e){ console.warn("수식 계산 오류", e); }
     const tpl=Uint8Array.from(atob(TPL_B64),ch=>ch.charCodeAt(0));
     const out=await xlsxFill(window.JSZip, tpl, cells, cache);

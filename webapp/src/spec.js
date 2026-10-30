@@ -14,15 +14,25 @@ function specLinesFromPages(pages){
   return out;
 }
 function specParse(lines){
+  // 한 글자 단위 기호 → 일반 표기 (㎾ → kW, ㎐ → Hz, ㎜ → mm, ㎡ 그대로)
+  lines = lines.map(l=>({...l, s:String(l.s).replace(/㎾/g,"kW").replace(/㎐/g,"Hz").replace(/㎜/g,"mm").replace(/㎽/g,"MW").replace(/ℓ/g,"L")}));
   const num=s=>parseFloat(String(s).replace(/,/g,""));
   const HEAD=/^\s*(\d+(?:\.\d+)+)\.?\s+([^()（）]{2,40}?)\s*[\(（]\s*((?:\d?[A-Z]{0,2}M|P)-?\d{3}[^)）]*)[\)）]/;
   const secs=[];
   // 제목에 기기번호가 없어도 포기(폭기)장치 · 배출장치 · 공법(반응조) 제어반은 항목으로 읽음
   const HEAD2=/^\s*(?:(\d+(?:\.\d+)+)\.?|(\d+)\.|[가-하]\.)\s*((?:SBR\s*)?(?:표면\s*)?(?:포기|폭기)\s*(?:장치|기)|배출\s*장치|디캔터|Decanter|(?:공법|반응조|SBR|현장)?\s*제어\s*반)\s*(?:[\(（]\s*([^)）]{2,30})[\)）])?\s*$/i;
-  lines.forEach((l,i)=>{ let m=l.s.match(HEAD); if(m){ secs.push({i, no:m[1], name:m[2].replace(/\s+/g,""), tag:m[3].replace(/\s+/g,"").replace(/～/g,"~"), page:l.page}); return; }
+  // 기기번호가 이름 앞: "5.2.1 M-201 SBR 반응조 처리장치 (공법사 공급)"
+  const HEAD3=/^\s*(\d+(?:\.\d+)+)\.?\s+((?:\d?[A-Z]{0,2}M|P)-?\d{3}[A-Z0-9~～,\-]*)\s+([^()（）]{2,40}?)\s*(?:[\(（][^)）]*[\)）])?\s*$/;
+  // 줄표·점 하위 항목: "- 포기장치", "∙ 배출장치" (같은 기기번호 아래 공법 기자재가 묶인 시방서)
+  const SUB=/^\s*[-–·∙•ㆍ]\s*((?:SBR\s*)?(?:표면\s*)?(?:포기|폭기)\s*(?:장치|기)|배출\s*장치|디캔터|Decanter|(?:공법|반응조|SBR|현장)?\s*제어\s*반)\s*$/i;
+  let lastHead=null;
+  lines.forEach((l,i)=>{ let m=l.s.match(HEAD); if(m){ lastHead={no:m[1],tag:m[3]}; secs.push({i, no:m[1], name:m[2].replace(/\s+/g,""), tag:m[3].replace(/\s+/g,"").replace(/～/g,"~"), page:l.page}); return; }
+    m=l.s.match(HEAD3); if(m){ lastHead={no:m[1],tag:m[2]}; secs.push({i, no:m[1], name:m[3].replace(/\s+/g,""), tag:m[2].replace(/\s+/g,"").replace(/～/g,"~"), page:l.page}); return; }
+    m=l.s.match(SUB); if(m && lastHead){ secs.push({i, no:lastHead.no, name:m[1].replace(/\s+/g,""), tag:lastHead.tag.replace(/\s+/g,""), page:l.page, sub:true}); return; }
+    if(/^\s*\d+(?:\.\d+)+\.?\s+\S/.test(l.s) && !/^\s*\d+\.\d+\s*$/.test(l.s)) lastHead=null;
     m=l.s.match(HEAD2); if(m){ const tg=(m[4]&&/M-?\d{3}/i.test(m[4]))?m[4].replace(/\s+/g,"").replace(/～/g,"~"):""; secs.push({i, no:m[1]||m[2]||l.s.trim().split(/\s+/)[0], name:m[3].replace(/\s+/g,""), tag:tg, page:l.page}); } });
   const UNIT="(kg\\s*[·.ㆍ]?\\s*O\\s*[₂2]\\s*\\/\\s*h(?:r)?|[ℓL]\\s*\\/\\s*s(?:ec)?|㎥\\s*\\/\\s*min|m3\\s*\\/\\s*min|㎥\\s*\\/\\s*h(?:r)?|m3\\s*\\/\\s*h(?:r)?|㎥\\s*\\/\\s*(?:일|d(?:ay)?)|m3\\s*\\/\\s*(?:일|d(?:ay)?))";
-  const CAP=new RegExp("(?:용\\s*량|사\\s*양|토\\s*출\\s*량)\\s*[:：]?\\s*([\\d,]+(?:\\.\\d+)?)\\s*"+UNIT,"i");
+  const CAP=new RegExp("(?:용\\s*량|사\\s*양|토\\s*출\\s*량|유\\s*출\\s*유\\s*량|배\\s*출\\s*유\\s*량|처\\s*리\\s*용\\s*량)\\s*[:：]?\\s*(?:Max\\.?\\s*|최대\\s*)?([\\d,]+(?:\\.\\d+)?)\\s*"+UNIT,"i");
   const normU=u=>{ u=u.replace(/\s/g,"").toLowerCase(); if(/kg/.test(u)) return "kgO₂/h"; if(/^[ℓl]\//.test(u)) return "L/s"; if(/min/.test(u)) return "㎥/min"; if(/\/h/.test(u)) return "㎥/h"; return "㎥/d"; };
   const out=[];
   secs.forEach((sc,k)=>{
@@ -32,11 +42,12 @@ function specParse(lines){
     const e={no:sc.no, name:sc.name, tag:sc.tag, page:sc.page, src:`${sc.no} ${sc.name}${sc.tag?`(${sc.tag})`:""} ${sc.page}쪽`};
     let m;
     if((m=txt.match(CAP))) e.cap={v:num(m[1]), unit:normU(m[2]), raw:m[0].replace(/\s+/g," ")};
-    if((m=txt.match(/(참\s*고\s*동\s*력|전\s*동\s*기|동\s*력|출\s*력)\s*[:：]?\s*([\d.]+)\s*kW/i))) e.kw={v:num(m[2]), label:m[1].replace(/\s/g,""), raw:m[0].replace(/\s+/g," ")};
+    if((m=txt.match(/(참\s*고\s*동\s*력|전\s*동\s*기|소\s*요\s*동\s*력|동\s*력|출\s*력|공\s*급\s*전\s*원)\s*[:：]?[^\n]*?(?<![\d.])([\d]+(?:\.\d+)?)\s*kW/i))) e.kw={v:num(m[2]), label:m[1].replace(/\s/g,""), raw:m[0].replace(/\s+/g," ")};
     else if(e.cap && (m=txt.slice(txt.indexOf(e.cap.raw.split(" ")[0])).match(/[×xX*]\s*([\d.]+)\s*kW/))) e.kw={v:num(m[1]), label:"동력", raw:m[0]};
     if((m=txt.match(/([\d.]+)\s*m\s*H\b/))) e.head=num(m[1]);
+    if((m=txt.match(/(?:Ø|φ|ø|∅)\s*([1-3]?\d,?\d{2,3})\s*mm/))) e.dia=num(m[1]);
     if((m=txt.match(/구\s*경\s*[:：]?\s*(?:Ø|φ|ø)?\s*(\d{2,3})\s*(?:A|mm)?/))) e.size=+m[1];
-    if((m=txt.match(/수\s*량\s*[:：]?\s*((?:\s*\d+(?:\(\d+\))?\s*(?:대|식|EA|조|면|SET))+)/i))){ const q=[...m[1].matchAll(/(\d+)(?:\(\d+\))?\s*(?:대|식|EA|조|면|SET)/gi)].map(x=>+x[1]); e.qty=q[0]; if(q.length>1) e.qtyAll=q.reduce((a,b)=>a+b,0); e.phases=q.length; }
+    if((m=txt.match(/(?:수\s*량|대\s*수)\s*[:：]?\s*((?:\s*\d+(?:\(\d+\))?\s*(?:대|식|EA|조|면|SET))+)/i))){ const q=[...m[1].matchAll(/(\d+)(?:\(\d+\))?\s*(?:대|식|EA|조|면|SET)/gi)].map(x=>+x[1]); e.qty=q[0]; if(q.length>1) e.qtyAll=q.reduce((a,b)=>a+b,0); e.phases=q.length; }
     if((m=txt.match(/참\s*고\s*동\s*력[^\n]*\(([^)]+)\)/))) e.kwNote=m[1];
     if((m=txt.match(/(\d{3,4})\s*(?:mm)?\s*[W]?\s*[×xX*]\s*(\d{3,4})\s*(?:mm)?\s*[DL]?\s*[×xX*]\s*(\d{3,4})\s*(?:mm)?\s*H?/))) e.whd=`${m[1]} × ${m[2]} × ${m[3]}`;
     if((m=txt.match(/(?:^|\n)\s*(?:[가-하]\.\s*|\d+\)\s*|[①-⑩]\s*)?재\s*질(?!\s*및)\s*[:：]?\s*([^\n]{2,40})/))) e.mat=m[1].replace(/\s+/g," ").trim();
@@ -101,8 +112,10 @@ function supplyParse(lines){
 }
 // 시방서 파싱 + 승인도서 보충: 같은 종류 항목의 빈 값만 채움, 없는 종류는 새로 추가
 function specParseAll(lines){
-  const R=specParse(lines); const txt=lines.slice(0,600).map(l=>l.s).join(" ");
-  R.isApproval=APPROVAL_RE.test(txt);
+  const R=specParse(lines); const txt=lines.slice(0,600).map(l=>l.s).join(" "), cover=lines.slice(0,40).map(l=>l.s).join(" ");
+  // 승인도서 판단: 표지에 '승인도서'가 있거나 공급기기 목록·DATA SHEET가 있을 때만 (공사시방서 목차의 '승인도서 제출' 조항은 제외)
+  const isSpecCover=/공\s*사\s*시\s*방\s*서|설\s*계\s*설\s*명\s*서|특\s*별\s*시\s*방\s*서|일\s*반\s*시\s*방\s*서/.test(cover);
+  R.isApproval = !isSpecCover && (APPROVAL_RE.test(cover) || /공\s*급\s*기\s*기\s*목\s*록|DATA\s*SHEET/i.test(txt));
   if(!R.isApproval) return R;
   const S=supplyParse(lines);
   for(const s of S){ const e=R.items.find(x=>x.type===s.type);

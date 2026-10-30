@@ -96,6 +96,8 @@ function equipFromTables(tables, src){
       if((m=capS.match(/([\d,]+(?:\.\d+)?)\s*(kgO₂\/h|L\s*\/\s*s(?:ec)?|㎥\s*\/\s*min|㎥\s*\/\s*h(?:r)?|㎥\s*\/\s*(?:일|d|2))/i))) e.cap={v:parseFloat(m[1].replace(/,/g,"")), unit:/kg/.test(m[2])?"kgO₂/h":/^L/i.test(m[2])?"L/s":/min/.test(m[2])?"㎥/min":/\/\s*h/.test(m[2])?"㎥/h":"㎥/d", raw:m[0]};
       if((m=capS.match(/H\s*([\d.]+)\s*m\b/i))||(m=capS.match(/([\d.]+)\s*m\s*H/i))) e.head=+m[1];
       if((m=capS.match(/[ΦØφ∅®@]\s*([\d,]{3,5})\s*mm/))) e.dia=parseFloat(m[1].replace(/,/g,""));
+      if(/배출장치|디[켄캔]터/.test(name+form) && (m=capS.match(/[ΦØφ∅]\s*(\d{2,3})(?![\d.])/))) e.size=+m[1];   /* '20L/sec × Ø150' */
+      if(!e.dia && /포기|폭기/.test(name+form) && (m=capS.match(/[ΦØφ∅]\s*(\d{3,4})(?![\d.])/))) e.dia=+m[1];   /* 'Ø900, 8.0kgO2/hr' */
       if(!e.cap && /배출장치|디[켄캔]터/.test(name) && (m=capS.match(/(\d{2,3})\s*[7ℓlL]\s*\/\s*[s5]\b/))) e.cap={v:+m[1], unit:"L/s", raw:capS, guess:true};   // '30ℓ/s' 인식 오류 '307/5'
       const wm=capS.match(/W\s*([\d,]+)/i), hm=capS.match(/H\s*([\d,]+)\s*mm|H\s*([\d,]{3,})/i), dm=capS.match(/D\s*([\d,]+)/i);
       if(wm&&dm&&hm) e.whd=`W${wm[1].replace(/,/g,"")} × D${dm[1].replace(/,/g,"")} × H${(hm[1]||hm[2]).replace(/,/g,"")}`;
@@ -114,7 +116,7 @@ function equipFromTables(tables, src){
       else if((/배출장치|배줄장치|디켄터|디캔터|decanter/i.test(name+form) && !/슬러지|스컴/.test(name)) || (e.cap&&e.cap.unit==="L/s"&&/생물|반응조/.test(section))) e.type="dec";
       else if(/잉여\s*슬러지/.test(name)) e.type="was";
       else if(/[총종]인.*공급펌프|처리수.*(이송|공급)펌프/.test(name) || (grp===4 && pumpLike && !/교반|약품|PAC|폴리머|반류|배수|슬러지|찌꺼기|역세/.test(name))) e.type="eff";
-      else if(/반응조.*(유입|공급)펌프/.test(name) || ((grp===2||(!grp&&/유량\s*조정/.test(section))) && /(유입|공급|이송)펌프/.test(name) && !/수문|배수|PAC|폴리머|약품|슬러지/.test(name)) || (grp===2 && pumpLike && /펌프/.test(name) && !/배수|수문/.test(name))) e.type="feed";
+      else if(/반응조.*(유입|공급)펌프/.test(name) || /^유량\s*조정조\s*(이송|공급)?\s*펌프/.test(name) || ((grp===2||(!grp&&/유량\s*조정/.test(section))) && /(유입|공급|이송)펌프/.test(name) && !/수문|배수|PAC|폴리머|약품|슬러지/.test(name)) || (grp===2 && pumpLike && /펌프/.test(name) && !/배수|수문/.test(name))) e.type="feed";
       else if(/[총종]인처리설비|[총종]인설비|가압부상시스템/.test((name+form).replace(/\s/g,"")) && e.cap && e.cap.unit==="㎥/d") e.type="tp";
       else e.type="etc";
       const LBL={feed:"반응조 유입(공급)펌프", eff:"총인 공급(처리수 이송)펌프", aer:"포기장치", dec:"배출장치", panel:"반응조 제어반", tp:"총인처리설비", was:"잉여슬러지 펌프"};

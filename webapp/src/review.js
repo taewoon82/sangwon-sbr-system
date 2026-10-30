@@ -70,7 +70,12 @@ function reviewJudge(c, ctx){
   if(has("G54")) put(54,"검토");
   if(has("D58") && blank(c.F58)) put(58,"확인","용량계산서 QIN");
   if(has("D59")){ const x=R("dsz"); if(x.st==="일치") put(59,"확인",`용량계산서 = 도면 (${x.xls}A)`); else if(x.st==="불일치") put(59,"부적합",`용량계산서 ${x.xls}A / 도면 ${x.dwg}A`); else put(59,"검토", x.dwg!=null?"도면 처리수 배관 표기로 추정 — 장비일람표 확인":"용량계산서 값"); }
-  if(has("D60")) put(60,"확인","장비 사양 값");
+  // 전동윈치: 도면 장비목록표 · 시방서 · 계산서 값을 나란히 대조
+  { const ds=((ctx.DS&&ctx.DS.R&&ctx.DS.R.items)||[]).find(e=>e.type==="dec"&&e.kw), dW=ds?ds.kw.v:null, sW=SP&&SP.dec&&SP.dec.kw?SP.dec.kw.v:null, xW=X&&X.winch?X.winch.v:null;
+    const parts=[dW!=null&&`도면 장비목록표 ${fx.f0x(dW)}kW`, sW!=null&&`시방서 ${fx.f0x(sW)}kW`, xW!=null&&`용량계산서 ${fx.f0x(xW)}kW`].filter(Boolean);
+    const vals=[dW,sW,xW].filter(v=>v!=null); const same=vals.every(v=>Math.abs(v-vals[0])<1e-6);
+    if(vals.length>=2) put(60, same?"확인":"부적합", `${parts.join(same?" = ":" / ")} — ${same?"일치":"불일치"}`);
+    else if(has("D60")) put(60,"검토", parts.length?`${parts[0]}만 확인됨 — 도면·시방서 대조 필요`:"장비 사양 값 — 도면·시방서 대조 필요"); }
   if(has("D61")) put(61,"확인","용량계산서 배출시간"); if(has("D62")) put(62,"확인","용량계산서 배출장치 설계유입량");
   // 4. 전기·제어
   for(const r of [68,69,72,79,80]) if(has("G"+r)) put(r,"확인");
@@ -86,6 +91,9 @@ function reviewJudge(c, ctx){
   if(has("D97")) put(97,"검토",`총인 공급펌프 1대 기준 사이클당 ${fx.f1(val("D97"))}분 — 운전 방식(연속/회분) 확인`);
   if(has("D56") && blank(c.G56)) put(56,null, c.D56==="있음"?null:"도면에서 반응조 상부 호이스트를 찾지 못함 — 유지관리 계획 확인");
   // 시방서·전원 자료가 비어 수식이 판정을 못 내는 칸
+  if(isNum(val("D51")) && isNum(val("D52"))){ const a=val("D51"), b=val("D52"), eq=Math.abs(a-b)<1e-6; c.D53=eq?"일치":"불일치";
+    const el=c.G53&&!/^=/.test(String(c.G53))?String(c.G53):""; const bad=/≠|확인 필요/.test(el);
+    c.F53=eq&&!bad?"확인":eq?"검토":"부적합"; c.G53=[`도면 ${fx.f0x(a)}kW ${eq?"=":"≠"} 시방서 ${fx.f0x(b)}kW — ${eq?"일치":"불일치"}`, el].filter(Boolean).join(" / "); }
   if(blank(V1.D53) && isNum(val("D51"))) put(53,"검토",`시방서 동력 값 없음 — 도면 ${fx.f0x(val("D51"))}kW만 확인됨, 시방서 대조 필요`);
   if(blank(V1.D53) && !isNum(val("D51")) && isNum(val("D52"))) put(53,"검토",`도면에 동력 표기 없음 — 시방서 ${fx.f0x(val("D52"))}kW만 확인됨, 기기일람표 대조 필요`);
   // 지당 포기장치·배출장치가 여러 대(판포 2대/지)면 부하 = (포기×대수 + 윈치×대수) × 지수 — 양식 수식 대신 값으로 기록
