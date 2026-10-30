@@ -12,7 +12,7 @@ for f in glob.glob(f"{gdir}/*.stl"):
     shutil.copy(f, f"{case}/constant/triSurface/")
 names = sorted(os.path.basename(f)[:-4] for f in glob.glob(f"{gdir}/*.stl"))
 imp = [n for n in names if n.startswith(("blade", "cover", "body", "turbine"))]
-fixed = ["walls", "haunch", "cross"] + [n for n in names if n == "stator"]
+fixed = ["walls"] + [n for n in names if n not in imp]
 H = "FoamFile { version 2.0; format ascii; class %s; object %s; }\n"
 def w(path, cls, obj, body):
     open(f"{case}/{path}", "w").write(H % (cls, obj) + body)
@@ -27,7 +27,7 @@ boundary (
 );
 """)
 geo = "\n".join(f" {n} {{ type triSurfaceMesh; file \"{n}.stl\"; }}" for n in names)
-lvl = {"haunch": "(1 1)", "cross": "(2 2)", "stator": "(4 4)"}
+lvl = {"tank": "(2 2)", "haunch": "(2 2)", "cross": "(2 2)", "stator": "(4 4)"}
 ref = "\n".join(f"  {n} {{ level {lvl.get(n, '(4 4)')}; patchInfo {{ type wall; }} }}" for n in names)
 dist = "\n".join(f"  {n} {{ mode distance; levels ((0.012 4) (0.05 3)); }}" for n in imp)
 feats = " ".join(f'{{ file "{n}.eMesh"; level {4 if n not in ("haunch","cross") else 2}; }}' for n in names)
@@ -88,7 +88,7 @@ w("system/controlDict", "dictionary", "controlDict", f"""
 application interFoam; startFrom latestTime; startTime 0; stopAt endTime; endTime {tend};
 deltaT 1e-5; writeControl adjustableRunTime; writeInterval 0.5; purgeWrite 0;
 writeFormat ascii; writePrecision 7; writeCompression off; timeFormat general; timePrecision 6;
-runTimeModifiable true; adjustTimeStep yes; maxCo 0.8; maxAlphaCo 0.5; maxDeltaT 0.01;
+runTimeModifiable true; adjustTimeStep yes; maxCo 3; maxAlphaCo 1; maxDeltaT 0.01;
 functions {{}}
 """)
 w("system/fvSchemes", "dictionary", "fvSchemes", """
